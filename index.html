@@ -9,8 +9,8 @@
 <h2>✦ Big Bang Laboratory</h2><p class="muted">128 points · Energy 50% · Attraction 30% · Bonding on · Collisions on · Seed CAVE-001</p>
 <div class="layout"><div><canvas id="bang-screen" width="640" height="480" style="cursor:crosshair"></canvas>
 <div class="buttons"><button id="bang-run">Pause</button><button id="bang-reset">Reset / Replay</button><button id="bang-step">Step +1</button><button id="bang-pulse">Pulse center</button></div>
-<label>Time speed <select id="bang-speed"><option value="0.25">0.25×</option><option value="1" selected>1×</option><option value="4">4×</option><option value="16">16×</option><option value="64">64×</option></select></label>
-<p class="muted">Click/tap the simulation to apply a radial impulse. Interactions are logged and replayable from the seed.</p>
+<label style="display:block;margin:10px 0"><input type="checkbox" id="bang-growth"> Enable density-triggered mutations (Experiment 002)</label><label>Time speed <select id="bang-speed"><option value="0.25">0.25×</option><option value="1" selected>1×</option><option value="4">4×</option><option value="16">16×</option><option value="64">64×</option></select></label>
+<p class="muted">Toggle mutations and reset to compare against the original CAVE-001 control. Crowded particles grow, recolor, and change bond rest lengths; sparse particles recover.</p><p class="muted">Click/tap the simulation to apply a radial impulse. Interactions are logged and replayable from the seed.</p>
 </div><aside><h3>OBSERVATORY</h3><p id="bang-stats" class="muted"></p><p id="bang-notice" class="muted">The universe begins at its first tick.</p><p>Particles attract, repel at short distances, and form/break spring bonds. Stable connected structures emerge if the rules permit them.</p><p class="muted">Toy physics, not a cosmological model. Fixed-step seeded simulation; reset repeats the same initial conditions.</p></aside></div></section><section id="play" class="panel"><div class="layout"><div><canvas id="screen" width="640" height="480" tabindex="0"></canvas><div class="buttons"><button id="interact">Interact · E / A</button><button id="save">Save</button><button id="load">Load</button><button id="reset">New world</button></div><div class="dpad"><button data-dir="left">←</button><button data-dir="up">↑</button><button data-dir="down">↓</button><button data-dir="right">→</button></div></div><aside><h3>THE FIRST ROOM</h3><p id="status"></p><p id="progress" class="muted"></p><p>Move with <kbd>WASD</kbd>, arrow keys, or controller. Interact using <kbd>E</kbd>, <kbd>Space</kbd>, or controller <kbd>A</kbd>.</p><p class="muted">Activate the glowing points to form a room. Find the doorway to discover another chamber.</p></aside></div></section>
 <section id="rules" class="panel hidden"><h2>Rule Map</h2><p>Points connect into lines. Closing a loop forms a room. Opening a room creates a corridor. Crossing a corridor reveals another chamber.</p><p>Future generations may change these rules, while preserving this playable ancestor.</p></section>
 <section id="stems" class="panel hidden"><h2>Stems</h2><p>Root → Generation 0 → The First Room</p><p>Later versions can branch into independent playable descendants.</p><p id="saved" class="muted"></p></section></div>
@@ -43,24 +43,24 @@ init();if(localStorage.getItem(saveKey))document.querySelector('#saved').textCon
 })();
 </script><script>
 (()=>{'use strict';
-const canvas=document.getElementById('bang-screen'),ctx=canvas.getContext('2d'),stats=document.getElementById('bang-stats'),notice=document.getElementById('bang-notice'),run=document.getElementById('bang-run'),speed=document.getElementById('bang-speed');
+const canvas=document.getElementById('bang-screen'),ctx=canvas.getContext('2d'),stats=document.getElementById('bang-stats'),notice=document.getElementById('bang-notice'),run=document.getElementById('bang-run'),speed=document.getElementById('bang-speed'),growth=document.getElementById('bang-growth');
 const N=128,W=640,H=480,SEED='CAVE-001',DT=1/60;
 let particles=[],bonds=new Map(),step=0,playing=true,carry=0,previous=0,impulses=[],rng;
 function hash(s){let h=2166136261;for(let i=0;i<s.length;i++){h=Math.imul(h^s.charCodeAt(i),16777619)}return h>>>0}
 function random(){let t=rng+=0x6D2B79F5;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return ((t^t>>>14)>>>0)/4294967296}
-function reset(){rng=hash(SEED);particles=[];bonds.clear();step=0;carry=0;impulses=[];for(let i=0;i<N;i++){let a=random()*Math.PI*2,r=Math.sqrt(random())*9,s=.45+random()*1.4;particles.push({x:W/2+Math.cos(a)*r,y:H/2+Math.sin(a)*r,vx:Math.cos(a)*s*2+(random()-.5)*.3,vy:Math.sin(a)*s*2+(random()-.5)*.3,m:.8+random()*.8,kind:i%3})}notice.textContent='Replayed seed '+SEED+' from tick zero.';render()}
+function reset(){rng=hash(SEED);particles=[];bonds.clear();step=0;carry=0;impulses=[];for(let i=0;i<N;i++){let a=random()*Math.PI*2,r=Math.sqrt(random())*9,s=.45+random()*1.4;particles.push({x:W/2+Math.cos(a)*r,y:H/2+Math.sin(a)*r,vx:Math.cos(a)*s*2+(random()-.5)*.3,vy:Math.sin(a)*s*2+(random()-.5)*.3,m:.8+random()*.8,kind:i%3,radius:2.7,mutation:0,threshold:5+random()*4,rate:.6+random()*.8})}notice.textContent='Replayed seed '+SEED+' from tick zero.';render()}
 function key(i,j){return i*N+j}
 function impulse(x,y,strength=3){impulses.push({at:step,x,y,strength});applyImpulse(x,y,strength)}
 function applyImpulse(x,y,strength){for(let i=0;i<N;i++){const p=particles[i],dx=p.x-x,dy=p.y-y,d=Math.hypot(dx,dy)+.01;if(d<120){const k=strength*(1-d/120);p.vx+=dx/d*k;p.vy+=dy/d*k}}}
-function physics(){let fx=new Float64Array(N),fy=new Float64Array(N);const neighbors=[];
-for(let i=0;i<N;i++)for(let j=i+1;j<N;j++){const a=particles[i],b=particles[j],dx=b.x-a.x,dy=b.y-a.y,d2=dx*dx+dy*dy+.0001,d=Math.sqrt(d2),nx=dx/d,ny=dy/d,id=key(i,j);let force=0;
+function physics(){let fx=new Float64Array(N),fy=new Float64Array(N);const neighbors=[],crowding=new Uint16Array(N);
+for(let i=0;i<N;i++)for(let j=i+1;j<N;j++){const a=particles[i],b=particles[j],dx=b.x-a.x,dy=b.y-a.y,d2=dx*dx+dy*dy+.0001,d=Math.sqrt(d2),nx=dx/d,ny=dy/d,id=key(i,j);let force=0;if(d<22){crowding[i]++;crowding[j]++}
 // Softened attraction with local repulsion, bounded to avoid singularities.
-force+=Math.min(.038, .3*1.7/(d2+80));if(d<10)force-=(10-d)*.012;
-if(bonds.has(id)){force+=(d-20)*.0018;if(d>75)bonds.delete(id)}
+force+=Math.min(.038, .3*1.7/(d2+80));if(d<(growth.checked?a.radius+b.radius+3:10))force-=((growth.checked?a.radius+b.radius+3:10)-d)*.012;
+if(bonds.has(id)){force+=(d-(growth.checked?20+(a.mutation+b.mutation)*13:20))*.0018;if(d>75)bonds.delete(id)}
 else if(d>10&&d<26&&Math.hypot(a.vx-b.vx,a.vy-b.vy)<1.8&&random()<.0018){bonds.set(id,step)}
 fx[i]+=nx*force;fy[i]+=ny*force;fx[j]-=nx*force;fy[j]-=ny*force;
 }
-for(let i=0;i<N;i++){let p=particles[i];p.vx=(p.vx+fx[i]/p.m)*.999;p.vy=(p.vy+fy[i]/p.m)*.999;let v=Math.hypot(p.vx,p.vy);if(v>4){p.vx*=4/v;p.vy*=4/v}p.x+=p.vx;p.y+=p.vy;
+for(let i=0;i<N;i++){let p=particles[i];if(growth.checked){const pressure=Math.max(0,(crowding[i]-p.threshold)/12);p.mutation=Math.max(0,Math.min(1,p.mutation+(pressure*p.rate*.004)-.0015));p.radius=2.7+p.mutation*5;fx[i]+=(p.x-W/2)*p.mutation*.00003;fy[i]+=(p.y-H/2)*p.mutation*.00003;}else{p.mutation=0;p.radius=2.7}p.vx=(p.vx+fx[i]/p.m)*.999;p.vy=(p.vy+fy[i]/p.m)*.999;let v=Math.hypot(p.vx,p.vy);if(v>4){p.vx*=4/v;p.vy*=4/v}p.x+=p.vx;p.y+=p.vy;
 // Reflective world edges, deterministic and always active.
 if(p.x<5){p.x=5;p.vx=Math.abs(p.vx)*.8}if(p.x>W-5){p.x=W-5;p.vx=-Math.abs(p.vx)*.8}
 if(p.y<5){p.y=5;p.vy=Math.abs(p.vy)*.8}if(p.y>H-5){p.y=H-5;p.vy=-Math.abs(p.vy)*.8}
@@ -68,10 +68,11 @@ if(p.y<5){p.y=5;p.vy=Math.abs(p.vy)*.8}if(p.y>H-5){p.y=H-5;p.vy=-Math.abs(p.vy)*
 function structures(){const adj=Array.from({length:N},()=>[]);for(const id of bonds.keys()){let i=Math.floor(id/N),j=id%N;adj[i].push(j);adj[j].push(i)}let visited=new Set(),groups=0,largest=0,cycles=0;for(let i=0;i<N;i++){if(visited.has(i)||!adj[i].length)continue;let stack=[i],nodes=0,degree=0;visited.add(i);while(stack.length){let v=stack.pop();nodes++;degree+=adj[v].length;for(const w of adj[v])if(!visited.has(w)){visited.add(w);stack.push(w)}}groups++;largest=Math.max(largest,nodes);cycles+=Math.max(0,degree/2-nodes+1)}return {groups,largest,cycles}}
 function render(){ctx.fillStyle='#070d18';ctx.fillRect(0,0,W,H);ctx.strokeStyle='#1c2939';ctx.lineWidth=1;for(let x=0;x<W;x+=40){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke()}for(let y=0;y<H;y+=40){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke()}
 ctx.lineWidth=1.2;for(const id of bonds.keys()){let a=particles[Math.floor(id/N)],b=particles[id%N];ctx.strokeStyle='#4ade8077';ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke()}
-for(const p of particles){ctx.fillStyle=['#67e8f9','#fbbf24','#c4b5fd'][p.kind];ctx.beginPath();ctx.arc(p.x,p.y,2.7,0,Math.PI*2);ctx.fill()}
-const s=structures();stats.textContent='Tick: '+step+'\nElapsed: '+(step/60).toFixed(2)+' s\nParticles: '+N+'\nBonds: '+bonds.size+'\nClusters: '+s.groups+'\nLargest cluster: '+s.largest+'\nIndependent cycles: '+s.cycles+'\nImpulses: '+impulses.length;stats.style.whiteSpace='pre-line';
-ctx.fillStyle='#94a3b8';ctx.font='13px monospace';ctx.fillText('CAVE-001  •  TICK '+step,12,22)}
+for(const p of particles){ctx.fillStyle=growth.checked&&p.mutation>.05?'hsl('+(45-p.mutation*42)+',95%,'+(62-p.mutation*8)+'%)':['#67e8f9','#fbbf24','#c4b5fd'][p.kind];ctx.beginPath();ctx.arc(p.x,p.y,p.radius,0,Math.PI*2);ctx.fill()}
+const s=structures(),mutated=particles.filter(p=>p.mutation>.05).length,avgRadius=(particles.reduce((sum,p)=>sum+p.radius,0)/N).toFixed(2);stats.textContent='Tick: '+step+'\nElapsed: '+(step/60).toFixed(2)+' s\nParticles: '+N+'\nBonds: '+bonds.size+'\nClusters: '+s.groups+'\nLargest cluster: '+s.largest+'\nIndependent cycles: '+s.cycles+'\nImpulses: '+impulses.length+'\nGrowth: '+(growth.checked?'ON':'OFF')+'\nMutating: '+mutated+'/'+N+'\nAvg radius: '+avgRadius;stats.style.whiteSpace='pre-line';
+ctx.fillStyle='#94a3b8';ctx.font='13px monospace';ctx.fillText('CAVE-001 '+(growth.checked?'• MUTATION 002':'• CONTROL 001')+' • TICK '+step,12,22)}
 function loop(now){if(!previous)previous=now;let elapsed=Math.min((now-previous)/1000,.1);previous=now;if(playing){carry+=elapsed*60*Number(speed.value);let count=0;while(carry>=1&&count<128){physics();carry--;count++}if(count===128)carry=0}render();requestAnimationFrame(loop)}
+growth.addEventListener('change',()=>{reset();notice.textContent=growth.checked?'Experiment 002: mutation active; seed replayed.':'Experiment 001: original rules restored; seed replayed.'});
 run.onclick=()=>{playing=!playing;run.textContent=playing?'Pause':'Run';notice.textContent=playing?'Simulation running.':'Simulation paused.'};
 document.getElementById('bang-reset').onclick=()=>{reset();playing=true;run.textContent='Pause'};
 document.getElementById('bang-step').onclick=()=>{playing=false;run.textContent='Run';physics();render()};
