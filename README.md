@@ -16,12 +16,14 @@ Open [the GitHub Pages build](https://thebiggesttaco.github.io/The-Cave/) or ope
 
 - **Move:** WASD, arrow keys, touch direction buttons, or an Xbox-compatible controller.
 - **Interact:** E, Space, the Interact button, or controller A.
-- **Objective:** Activate four room atoms, form connections, and reach the doorway to discover another chamber.
+- **Objective:** Control the fifth atom among four autonomous atoms; connect or break lines, create circular boundaries, and explore whether closed geometry produces an enclosure.
 - **Save / Load:** Browser `localStorage`; saves are local to that browser.
 
-### Four-atom room prototype
+### Five-atom play experiment
 
-The four dots in the playable room now each represent an **instance of the same atom**. Each has its own mutation and rotation state, plus four internal connection ports:
+The Play tab now starts with **four autonomous atoms and a fifth player-controlled atom**. The previous scripted room and exit have been replaced with a geometric enclosure experiment. Four line connections can enclose a room when they form a closed cycle; individual atoms can also express circles that the player can enter and leave. Use E / Space / controller A to connect or break nearby lines, and C / controller X to toggle a nearby circle. Live controls adjust spring bonds, collision resistance, attraction, and circle-boundary resistance.
+
+The earlier four-port atom visualization was a preliminary prototype: Each has its own mutation and rotation state, plus four internal connection ports:
 
 | Port | Color | Intended property |
 | --- | --- | --- |
@@ -32,7 +34,7 @@ The four dots in the playable room now each represent an **instance of the same 
 
 Lines attach to **ports within the atoms**, rather than always running center-to-center. Port selection currently depends on the direction between atoms. Activating and connecting atoms changes their mutation state; their ports rotate gradually, and connections can be rendered differently based on their ports.
 
-**Current limitation:** These port names are *potential properties*, not four fully implemented physical effects. The playable room is an interaction/visualization prototype, not yet a complete integration of the laboratory physics. A port's appearance alone should not be mistaken for an emergent material behavior.
+**Current limitation:** These port names are *potential properties*, not four fully implemented physical effects. The earlier port visualization was an interaction/visualization prototype. The current five-atom Play mode has simple motion, spring bonds, collision forces, attraction, and circle-boundary forces, but it is **not yet driven by the same shared physics module as the Big Bang Laboratory**. A port's appearance alone should not be mistaken for an emergent material behavior.
 
 ## Big Bang Laboratory
 
@@ -70,7 +72,7 @@ Importantly, the rulebook must **remain editable and versionable**. We should be
 
 ## Views
 
-- **Play:** Four-atom room-building prototype and chamber navigation.
+- **Play:** Five-atom physics experiment, line-loop enclosures, circular boundaries, and player-controlled movement.
 - **Rule Map:** Current conceptual rules and atomic-port model.
 - **Stems:** Generation 0 ancestry and a place for future branches.
 - **Big Bang Lab:** Physics experiments, instrumentation, and live rule toggles.
