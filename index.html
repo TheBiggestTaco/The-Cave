@@ -428,10 +428,10 @@ flightShots=flightShots.filter(b=>b.age<75);
 function flightRender(){
 if(document.getElementById('flight').classList.contains('hidden')||!ship)return;
 const w=640,h=400;flightCtx.fillStyle='#080f1f';flightCtx.fillRect(0,0,w,h);
-const camDistance=90,scale=310;
-const cameraOffset=flightRotate({x:0,y:17,z:-camDistance});
-const camera={x:ship.x+cameraOffset.x,y:ship.y+cameraOffset.y,z:ship.z+cameraOffset.z};
-const cameraYaw=ship.yaw,cameraPitch=ship.pitch*.45;
+// Close third-person chase camera; yaw follows ship, but pitch and roll remain visible.
+const camDistance=52,scale=310;
+const cameraYaw=ship.yaw,cameraPitch=0;
+const camera={x:ship.x-Math.sin(cameraYaw)*camDistance,y:ship.y+12,z:ship.z-Math.cos(cameraYaw)*camDistance};
 function project(v){
 let x=v.x-camera.x,y=v.y-camera.y,z=v.z-camera.z,c=Math.cos(-cameraYaw),s=Math.sin(-cameraYaw);
 [x,z]=[x*c+z*s,-x*s+z*c];c=Math.cos(-cameraPitch);s=Math.sin(-cameraPitch);[y,z]=[y*c-z*s,y*s+z*c];
