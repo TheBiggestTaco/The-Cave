@@ -1,10 +1,25 @@
 <!doctype html>
 <html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>The Cave — Generation 0</title>
 <style>
-*{box-sizing:border-box}body{margin:0;background:#090f19;color:#e2e8f0;font:15px system-ui}.wrap{max-width:1000px;margin:auto;padding:22px}header{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap}h1{letter-spacing:.12em}small,.muted{color:#94a3b8}nav,.buttons{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}button{background:#1e293b;color:white;border:1px solid #475569;border-radius:8px;padding:10px 14px;cursor:pointer}button:hover,button.selected{border-color:#67e8f9;color:#67e8f9}.panel{border:1px solid #334155;border-radius:12px;padding:16px;background:#111c2b}.layout{display:grid;grid-template-columns:minmax(0,1fr) 230px;gap:16px}canvas{display:block;width:100%;aspect-ratio:4/3;image-rendering:pixelated;background:#080d17;border:1px solid #334155;border-radius:8px}.hidden{display:none}#status{color:#a5f3fc;min-height:3em;line-height:1.5}.dpad{display:flex;gap:6px;margin-top:10px}kbd{background:#334155;padding:2px 5px;border-radius:3px}@media(max-width:680px){.layout{grid-template-columns:1fr}.wrap{padding:12px}}
+*{box-sizing:border-box}body{margin:0;background:#090f19;color:#e2e8f0;font:15px system-ui}.wrap{max-width:1000px;margin:auto;padding:22px}header{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap}h1{letter-spacing:.12em}small,.muted{color:#94a3b8}nav,.buttons{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}button{background:#1e293b;color:white;border:1px solid #475569;border-radius:8px;padding:10px 14px;cursor:pointer}button:hover,button.selected{border-color:#67e8f9;color:#67e8f9}.panel{border:1px solid #334155;border-radius:12px;padding:16px;background:#111c2b}.layout{display:grid;grid-template-columns:minmax(0,1fr) 230px;gap:16px}.studio-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.studio-grid h3{font-size:12px;letter-spacing:.1em}.studio-grid p{font-size:12px}@media(max-width:720px){.studio-grid{grid-template-columns:1fr}}canvas{display:block;width:100%;aspect-ratio:4/3;image-rendering:pixelated;background:#080d17;border:1px solid #334155;border-radius:8px}.hidden{display:none}#status{color:#a5f3fc;min-height:3em;line-height:1.5}.dpad{display:flex;gap:6px;margin-top:10px}kbd{background:#334155;padding:2px 5px;border-radius:3px}@media(max-width:680px){.layout{grid-template-columns:1fr}.wrap{padding:12px}}
 </style>
 <div class="wrap"><header><div><h1>◯ THE CAVE</h1><small>GENERATION 0 · A GAME THAT GROWS</small></div><small>Independent prototype · v0.1</small></header>
-<nav><button data-tab="play" class="selected">Play</button><button data-tab="rules">Rule Map</button><button data-tab="stems">Stems</button><button data-tab="bigbang">Big Bang Lab</button></nav>
+<nav><button data-tab="play" class="selected">Play</button><button data-tab="rules">Rule Map</button><button data-tab="stems">Stems</button><button data-tab="bigbang">Big Bang Lab</button><button data-tab="studio">Perception Studio</button></nav>
+<section id="studio" class="panel hidden">
+<h2>◉ Perception Studio <small>· prototype 1</small></h2>
+<p class="muted">One living 128-atom simulation. Present visual stimuli, watch its physical response, and inspect what its state can express. The output is a diagnostic encoding, not a trained image reconstruction.</p>
+<div class="buttons"><label>Upload image <input id="studio-image" type="file" accept="image/*"></label><button id="studio-folder">Choose image folder · 10s cycle</button><button id="studio-remove">Disconnect stimulus</button></div>
+<div class="buttons"><button id="studio-play">Pause simulation</button><button id="studio-reset">Replay seed</button><label>Memory <select id="studio-memory"><option value="off">Observe only</option><option value="attract">Attract</option><option value="repel">Repel</option></select></label><label>Memory strength <input id="studio-memory-strength" type="range" min="0" max="100" value="20"></label></div>
+<p id="studio-state" class="muted" aria-live="polite">Ready · CAVE-001 · waiting for visual input</p>
+<div class="studio-grid">
+<div><h3>01 · SOURCE</h3><canvas id="studio-source" width="320" height="240"></canvas><p class="muted">The image presented to the atoms.</p></div>
+<div><h3>02 · BRAIN-ONLY OUTPUT</h3><canvas id="studio-brain" width="320" height="240"></canvas><p class="muted">Decoded from current atom properties only. No source-image pixels are read here.</p></div>
+<div><h3>03 · POSITION MEMORY</h3><canvas id="studio-memory-view" width="320" height="240"></canvas><p class="muted">Decaying positions stored by the existing memory system.</p></div>
+</div>
+<div class="buttons"><button id="studio-snapshot">Save output PNG</button><button id="studio-memory-save">Save memory PNG</button><button id="studio-clear-drawing">Clear atom sketchpad</button><button id="studio-lab">Open advanced laboratory</button></div>
+<p id="studio-metrics" class="muted">The experiment starts when the simulation runs.</p>
+<details><summary>What this prototype can and cannot show</summary><p class="muted">The source image affects atom forces through luminance gradients. Brain-only output renders atom position, type, speed and mutation as a colored field; it does not read the image or prove recognition. Position memory uses the same decaying histories as the physics memory option. The two tabs share one simulation, not separate copies. A future reconstruction test would need an explicit sensory encoding and independently evaluated decoder.</p></details>
+</section>
 <section id="bigbang" class="panel hidden">
 <h2>✦ Big Bang Laboratory</h2><p class="muted">128 points · Energy 50% · Attraction 30% · Bonding on · Collisions on · Seed CAVE-001</p>
 <div class="layout"><div><canvas id="bang-screen" width="640" height="480" style="cursor:crosshair"></canvas>
@@ -47,7 +62,7 @@ document.addEventListener('keydown',e=>{const k=e.key.toLowerCase();if(['arrowup
 document.getElementById('interact').onclick=interact;document.getElementById('circle').onclick=circle;document.getElementById('spawn').onclick=spawn;document.getElementById('reset').onclick=init;
 document.getElementById('save').onclick=()=>{localStorage.setItem(saveKey,JSON.stringify({atoms,edges,options:Object.fromEntries(Object.entries(opts).map(([k,v])=>[k,v.checked]))}));status.textContent='Five-atom world saved in this browser.';document.getElementById('saved').textContent='Five-atom save available.'};
 document.getElementById('load').onclick=()=>{try{const s=JSON.parse(localStorage.getItem(saveKey));if(!s||s.atoms?.length!==5||!Array.isArray(s.edges))throw Error();atoms=s.atoms;edges=s.edges;for(const [k,v] of Object.entries(s.options||{}))if(opts[k])opts[k].checked=!!v;update();status.textContent='Five-atom world loaded.'}catch{status.textContent='No valid five-atom save found.'}};
-document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('selected',x===b));['play','rules','stems','bigbang'].forEach(id=>document.getElementById(id).classList.toggle('hidden',id!==b.dataset.tab))});
+document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('selected',x===b));['play','rules','stems','bigbang','studio'].forEach(id=>document.getElementById(id).classList.toggle('hidden',id!==b.dataset.tab))});
 document.querySelectorAll('[data-dir]').forEach(b=>{b.addEventListener('pointerdown',e=>{e.preventDefault();touch=b.dataset.dir;b.setPointerCapture(e.pointerId)});b.addEventListener('pointerup',()=>touch='');b.addEventListener('pointercancel',()=>touch='')});
 init();if(localStorage.getItem(saveKey))document.getElementById('saved').textContent='Five-atom save available.';requestAnimationFrame(tick);
 })();
@@ -350,7 +365,41 @@ if(!audioCtx){const AC=window.AudioContext||window.webkitAudioContext;if(!AC)thr
 }catch(e){perceptionStatus.textContent='Sound could not start: '+e.message}}
 audioButton.addEventListener('click',togglePerceptionAudio);
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&audioGain&&audioCtx)audioGain.gain.setTargetAtTime(0,audioCtx.currentTime,.04)});
-function loop(now){pollController();if(!previous)previous=now;let elapsed=Math.min((now-previous)/1000,.1);previous=now;if(playing){carry+=elapsed*60*Number(speed.value);let count=0;while(carry>=1&&count<128){physics();advanceAB();carry--;count++}if(count===128)carry=0}render();if(++perceptionFrame%2===0){perceive();renderFibers();renderBrainStatic();renderMemoryStatic();drawSensoryObservatory();drawAB()}requestAnimationFrame(loop)}
+
+const studioSource=document.getElementById('studio-source'),studioBrain=document.getElementById('studio-brain'),studioMemoryView=document.getElementById('studio-memory-view'),studioState=document.getElementById('studio-state'),studioMetrics=document.getElementById('studio-metrics');
+const studioSourceCtx=studioSource.getContext('2d'),studioBrainCtx=studioBrain.getContext('2d'),studioMemoryCtx=studioMemoryView.getContext('2d');
+const studioInput=document.getElementById('studio-image'),studioPlay=document.getElementById('studio-play'),studioMemoryMode=document.getElementById('studio-memory'),studioMemoryStrength=document.getElementById('studio-memory-strength');
+function studioSave(canvas,prefix){const link=document.createElement('a');link.download=prefix+'-tick-'+step+'.png';link.href=canvas.toDataURL('image/png');link.click()}
+function studioRender(){
+if(document.getElementById('studio').classList.contains('hidden'))return;
+studioSourceCtx.fillStyle='#0b1422';studioSourceCtx.fillRect(0,0,320,240);
+if(imagePixels){studioSourceCtx.drawImage(imagePixels,0,0,320,240)}else{studioSourceCtx.fillStyle='#94a3b8';studioSourceCtx.font='14px sans-serif';studioSourceCtx.fillText('No image connected',85,122)}
+// Diagnostic decoder: ONLY atom state; no imageField or imagePixels accessed.
+studioBrainCtx.fillStyle='#0b1422';studioBrainCtx.fillRect(0,0,320,240);
+for(let i=0;i<particles.length;i++){const p=particles[i],x=p.x/W*320,y=p.y/H*240,speed=Math.hypot(p.vx,p.vy),radius=7+Math.min(20,(p.radius||3)*2+speed*2),gradient=studioBrainCtx.createRadialGradient(x,y,0,x,y,radius);
+const hue=((i%3)*120+Math.min(65,(p.mutation||0)*55))%360;
+gradient.addColorStop(0,'hsla('+hue+',85%,70%,.55)');gradient.addColorStop(1,'hsla('+hue+',85%,50%,0)');
+studioBrainCtx.fillStyle=gradient;studioBrainCtx.beginPath();studioBrainCtx.arc(x,y,radius,0,Math.PI*2);studioBrainCtx.fill()}
+studioMemoryCtx.fillStyle='#0b1422';studioMemoryCtx.fillRect(0,0,320,240);
+let samples=0;for(const history of atomMemories)for(const mark of history){const age=step-mark.t;if(age<0||age>1800)continue;const weight=Math.exp(-age/420);studioMemoryCtx.fillStyle='rgba(255,185,105,'+Math.min(.45,weight*.14)+')';studioMemoryCtx.fillRect(mark.x/W*320-1.5,mark.y/H*240-1.5,3,3);samples++}
+const meanSpeed=particles.reduce((s,p)=>s+Math.hypot(p.vx,p.vy),0)/Math.max(1,particles.length);
+studioMetrics.textContent='Seed CAVE-001 · tick '+step.toLocaleString()+' · 128 atoms · mean speed '+meanSpeed.toFixed(3)+' · '+bonds.size+' bonds · '+samples.toLocaleString()+' memory samples · '+(playing?'running':'paused');
+studioState.textContent=(imageField?'Stimulus connected':'No stimulus')+' · '+(folderEntries.length?(folderPaused?'folder paused':'folder cycling, every 10s'):'single image / none')+' · memory '+memoryMode.value+' · output is atom-only';
+}
+studioInput.addEventListener('change',async()=>{const file=studioInput.files&&studioInput.files[0];if(!file)return;stopFolderCycle();try{const img=await decodeImageFile(file);buildImageField(img);imageMode.value='field';studioState.textContent='Connected '+file.name+' without resetting atoms';studioRender()}catch(e){studioState.textContent='Could not load image: '+e.message}});
+document.getElementById('studio-folder').addEventListener('click',()=>folderInput.click());
+document.getElementById('studio-remove').addEventListener('click',()=>document.getElementById('perception-clear').click());
+studioPlay.addEventListener('click',()=>{run.click();studioPlay.textContent=playing?'Pause simulation':'Resume simulation'});
+document.getElementById('studio-reset').addEventListener('click',()=>{document.getElementById('bang-reset').click();studioPlay.textContent='Pause simulation';studioRender()});
+studioMemoryMode.addEventListener('change',()=>{memoryMode.value=studioMemoryMode.value;memoryMode.dispatchEvent(new Event('change'))});
+studioMemoryStrength.addEventListener('input',()=>{memoryStrength.value=studioMemoryStrength.value;memoryStrength.dispatchEvent(new Event('input'))});
+memoryMode.addEventListener('change',()=>{studioMemoryMode.value=memoryMode.value});
+memoryStrength.addEventListener('input',()=>{studioMemoryStrength.value=memoryStrength.value});
+document.getElementById('studio-snapshot').addEventListener('click',()=>studioSave(studioBrain,'the-cave-brain-only'));
+document.getElementById('studio-memory-save').addEventListener('click',()=>studioSave(studioMemoryView,'the-cave-position-memory'));
+document.getElementById('studio-clear-drawing').addEventListener('click',()=>clearSketch());
+document.getElementById('studio-lab').addEventListener('click',()=>document.querySelector('[data-tab="bigbang"]').click());
+function loop(now){pollController();if(!previous)previous=now;let elapsed=Math.min((now-previous)/1000,.1);previous=now;if(playing){carry+=elapsed*60*Number(speed.value);let count=0;while(carry>=1&&count<128){physics();advanceAB();carry--;count++}if(count===128)carry=0}render();if(++perceptionFrame%2===0){studioRender();perceive();renderFibers();renderBrainStatic();renderMemoryStatic();drawSensoryObservatory();drawAB()}requestAnimationFrame(loop)}
 memoryMode.addEventListener('change',()=>{memoryStatus.textContent='Memory '+memoryMode.value+' at tick '+step+'; stored history preserved.'});memoryStrength.addEventListener('input',()=>{memoryStatus.textContent='Memory strength '+memoryStrength.value+'% · history preserved.'});function liveChange(label){notice.textContent='Live rule change at tick '+step+': '+label+'. World state preserved.';render()}
 adapt.addEventListener('change',()=>liveChange('local adaptation '+(adapt.checked?'ON':'OFF')));
 divideForce.addEventListener('change',()=>liveChange('center-outward force '+(divideForce.checked?'ON':'OFF')));
