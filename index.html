@@ -18,6 +18,8 @@
 <h2>✦ Particle Platformer</h2>
 <p class="muted">Ejected particles become button presses. Optional visual feedback sends the entire level back as sensory forces; with feedback off, control remains one-way.</p>
 <canvas id="platform-screen" width="640" height="360" style="aspect-ratio:16/9"></canvas>
+<div class="buttons"><label>Flag position <select id="platform-flag-position"><option value="624">Right (baseline)</option><option value="350">Center</option><option value="90">Left</option></select></label><button id="platform-flag-replay">Replay seed with this flag position</button></div>
+<p class="muted">Move only the goal flag, keeping the platforms unchanged. Replay the same seed with feedback enabled and compare whether the atom distribution or controls respond to the new location. Flag position is also the actual goal location.</p>
 <div class="buttons"><label><input type="checkbox" id="platform-feedback"> Feed full platformer view into blob sensory input</label><label>Feedback strength <input type="range" id="platform-feedback-strength" min="0" max="300" value="100"></label></div>
 <p class="muted">Live sensory source — the entire level, not a cropped camera. When enabled, this frame is sampled at 64 × 48 and applies image-gradient forces to the blob each physics tick. Switch off to restore the original open-loop behavior.</p>
 <canvas id="platform-source" width="640" height="360" style="aspect-ratio:16/9"></canvas>
@@ -487,6 +489,11 @@ document.getElementById('flight-trail').addEventListener('click',()=>{flightTrai
 const platformCanvas=document.getElementById('platform-screen'),pg=platformCanvas.getContext('2d'),platformStats=document.getElementById('platform-stats'),platformEvents=document.getElementById('platform-events'),platformMapping=document.getElementById('platform-mapping'),platformDuration=document.getElementById('platform-duration');
 let platformX=36,platformY=280,platformVX=0,platformVY=0,platformGround=true,platformHeld={left:0,right:0,jump:0},platformEventLog=[],platformCount=0,platformDeaths=0,platformWins=0,platformPrevMain=new Set(),platformArmed=new Set(),platformLastMainCenter={x:320,y:240};
 const platformSegments=[[0,132,312],[168,265,312],[302,407,277],[444,565,312],[580,640,312]];
+const platformFlagPosition=document.getElementById('platform-flag-position');
+function platformFlag(){const x=Number(platformFlagPosition.value);return {x,top:x===350?277:312}}
+function platformDrawFlag(c){const {x,top}=platformFlag();c.fillStyle='#f6c76c';c.fillRect(x-4,top-64,4,64);c.beginPath();c.moveTo(x,top-64);c.lineTo(x+19,top-54);c.lineTo(x,top-44);c.fill()}
+platformFlagPosition.addEventListener('change',()=>{platformUpdateSensory();platformRender();});
+document.getElementById('platform-flag-replay').addEventListener('click',()=>document.getElementById('bang-reset').click());
 function platformResetLevel(){platformX=36;platformY=280;platformVX=0;platformVY=0;platformGround=true;platformHeld={left:0,right:0,jump:0}}
 function platformResetAll(){platformSensoryField=null;platformResetLevel();platformEventLog=[];platformCount=0;platformDeaths=0;platformWins=0;platformPrevMain=new Set();platformArmed=new Set();platformLastMainCenter={x:320,y:240}}
 function platformComponents(){
@@ -528,7 +535,7 @@ const prevBottom=platformY+12;platformX+=platformVX;platformVY+=.35;platformY+=p
 for(const [a,b,y] of platformSegments){if(platformVX||true){if(platformX+9>a&&platformX-9<b&&platformVY>=0&&prevBottom<=y+2&&platformY+12>=y){platformY=y-12;platformVY=0;platformGround=true}}}
 if(platformY>395){platformDeaths++;platformResetLevel()}
 platformX=Math.max(10,Math.min(630,platformX));
-if(platformX>620&&platformY<320){platformWins++;platformResetLevel()}
+const goal=platformFlag();if(Math.abs(platformX-goal.x)<15&&Math.abs(platformY-(goal.top-12))<28){platformWins++;platformResetLevel()}
 }
 
 const platformFeedback=document.getElementById('platform-feedback'),platformFeedbackStrength=document.getElementById('platform-feedback-strength'),platformFeedbackStatus=document.getElementById('platform-feedback-status'),platformSource=document.getElementById('platform-source'),platformSourceCtx=platformSource.getContext('2d');
@@ -561,7 +568,7 @@ const c=platformSourceCtx;c.fillStyle='#0b1422';c.fillRect(0,0,640,360);
 c.strokeStyle='#1a3043';c.lineWidth=1;
 for(let x=0;x<640;x+=32){c.beginPath();c.moveTo(x,0);c.lineTo(x,360);c.stroke()}
 for(const [a,b,y] of platformSegments){c.fillStyle='#568a83';c.fillRect(a,y,b-a,360-y);c.fillStyle='#a5dfc5';c.fillRect(a,y,b-a,4)}
-c.fillStyle='#f6c76c';c.fillRect(620,248,4,64);c.beginPath();c.moveTo(624,248);c.lineTo(643,258);c.lineTo(624,268);c.fill();
+platformDrawFlag(c);
 c.fillStyle='#6ee7dc';c.beginPath();c.arc(platformX,platformY,11,0,Math.PI*2);c.fill();c.fillStyle='#0b1422';c.fillRect(platformX-5,platformY-3,3,3);c.fillRect(platformX+3,platformY-3,3,3);
 }
 function platformUpdateSensory(){
@@ -592,7 +599,7 @@ platformDrawSource();platformRenderSensory();pg.drawImage(platformSource,0,0);
 pg.fillStyle='#0b1422';pg.fillRect(0,0,640,360);
 pg.strokeStyle='#1a3043';pg.lineWidth=1;for(let x=0;x<640;x+=32){pg.beginPath();pg.moveTo(x,0);pg.lineTo(x,360);pg.stroke()}
 for(const [a,b,y] of platformSegments){pg.fillStyle='#568a83';pg.fillRect(a,y,b-a,360-y);pg.fillStyle='#a5dfc5';pg.fillRect(a,y,b-a,4)}
-pg.fillStyle='#f6c76c';pg.fillRect(620,248,4,64);pg.beginPath();pg.moveTo(624,248);pg.lineTo(643,258);pg.lineTo(624,268);pg.fill();
+platformDrawFlag(pg);
 pg.fillStyle='#6ee7dc';pg.beginPath();pg.arc(platformX,platformY,11,0,Math.PI*2);pg.fill();pg.fillStyle='#0b1422';pg.fillRect(platformX-5,platformY-3,3,3);pg.fillRect(platformX+3,platformY-3,3,3);
 pg.fillStyle='#e2e8f0';pg.font='13px monospace';pg.fillText('CAVE-001 · TICK '+step+' · ONE-WAY EJECTION CONTROLS',12,22);
 pg.fillText('LEFT '+platformHeld.left+'   RIGHT '+platformHeld.right+'   JUMP '+platformHeld.jump,12,42);
