@@ -390,7 +390,7 @@ const studioInput=document.getElementById('studio-image'),studioPlay=document.ge
 function studioSave(canvas,prefix){const link=document.createElement('a');link.download=prefix+'-tick-'+step+'.png';link.href=canvas.toDataURL('image/png');link.click()}
 
 
-const flightCanvas=document.getElementById('flight-screen'),fc=flightCanvas.getContext('2d'),flightStats=document.getElementById('flight-stats'),flightEvents=document.getElementById('flight-events'),flightMapping=document.getElementById('flight-mapping'),flightResponse=document.getElementById('flight-response');
+const flightCanvas=document.getElementById('flight-screen'),flightCtx=flightCanvas.getContext('2d'),flightStats=document.getElementById('flight-stats'),flightEvents=document.getElementById('flight-events'),flightMapping=document.getElementById('flight-mapping'),flightResponse=document.getElementById('flight-response');
 let ship,flightTrail=[],flightShots=[],flightSignals=[],flightEjections=0,flightLasers=0,flightTick=0;
 function flightResetShip(){ship={x:0,y:0,z:0,vx:0,vy:0,vz:0,pitch:0,yaw:0,roll:0,dp:0,dy:0,dr:0,thrust:0};flightTrail=[];flightShots=[]}
 function flightResetAll(){flightResetShip();flightSignals=[];flightEjections=0;flightLasers=0;flightTick=0}
@@ -427,7 +427,7 @@ flightShots=flightShots.filter(b=>b.age<75);
 }
 function flightRender(){
 if(document.getElementById('flight').classList.contains('hidden')||!ship)return;
-const w=640,h=400;fc.fillStyle='#080f1f';fc.fillRect(0,0,w,h);
+const w=640,h=400;flightCtx.fillStyle='#080f1f';flightCtx.fillRect(0,0,w,h);
 const camDistance=90,scale=310;
 const cameraOffset=flightRotate({x:0,y:17,z:-camDistance});
 const camera={x:ship.x+cameraOffset.x,y:ship.y+cameraOffset.y,z:ship.z+cameraOffset.z};
@@ -439,8 +439,8 @@ if(z<2)return null;const f=scale/z;return {x:w/2+x*f,y:h*.52-y*f,z}
 }
 const worldObjects=[];
 for(let i=0;i<120;i++){const x=((i*137.41)%1600)-800,y=((i*283.37)%900)-450,z=((i*417.19)%2000)-500;worldObjects.push({x,y,z})}
-for(const p of worldObjects){const q=project(p);if(!q||q.x<0||q.x>w||q.y<0||q.y>h)continue;const r=Math.max(.6,Math.min(2.3,100/q.z));fc.fillStyle='#8da9c6';fc.fillRect(q.x,q.y,r,r)}
-function line(a,b,color,width=1){const x=project(a),y=project(b);if(!x||!y)return;fc.strokeStyle=color;fc.lineWidth=width;fc.beginPath();fc.moveTo(x.x,x.y);fc.lineTo(y.x,y.y);fc.stroke()}
+for(const p of worldObjects){const q=project(p);if(!q||q.x<0||q.x>w||q.y<0||q.y>h)continue;const r=Math.max(.6,Math.min(2.3,100/q.z));flightCtx.fillStyle='#8da9c6';flightCtx.fillRect(q.x,q.y,r,r)}
+function line(a,b,color,width=1){const x=project(a),y=project(b);if(!x||!y)return;flightCtx.strokeStyle=color;flightCtx.lineWidth=width;flightCtx.beginPath();flightCtx.moveTo(x.x,x.y);flightCtx.lineTo(y.x,y.y);flightCtx.stroke()}
 for(let k=0;k<16;k++){const z=k*160-300;for(let x=-3;x<=3;x++){line({x:x*90,y:-70,z},{x:x*90,y:-70,z:z+160},'#1c3850');}line({x:-270,y:-70,z},{x:270,y:-70,z},'#1c3850')}
 for(let i=1;i<flightTrail.length;i++)line(flightTrail[i-1],flightTrail[i],'#56dfca',1.6);
 for(let i=0;i<12;i++){const z=200+i*220,x=Math.sin(i*2.4)*160,y=Math.cos(i*1.8)*90;const pts=[];for(let a=0;a<=24;a++){const t=a*Math.PI/12;pts.push({x:x+Math.cos(t)*25,y:y+Math.sin(t)*25,z})}for(let a=1;a<pts.length;a++)line(pts[a-1],pts[a],'#d5a65d',1.5)}
@@ -450,10 +450,10 @@ const shape=[{x:0,y:0,z:14},{x:-4,y:0,z:-6},{x:4,y:0,z:-6},{x:-15,y:-1,z:-6},{x:
 const verts=shape.map(v=>{const t=flightRotate(v);return {x:t.x+ship.x,y:t.y+ship.y,z:t.z+ship.z}});
 const edges=[[0,1],[0,2],[1,3],[2,4],[3,5],[4,6],[5,6],[1,2],[3,4]];
 for(const [a,b] of edges)line(verts[a],verts[b],'#a5e2ed',3);
-const nose=project(verts[0]);if(nose){fc.fillStyle='#ffd38b';fc.beginPath();fc.arc(nose.x,nose.y,3,0,Math.PI*2);fc.fill()}
-fc.fillStyle='#e2e8f0';fc.font='12px monospace';fc.fillText('PARTICLE FLIGHT · CAVE-001 · TICK '+step,12,20);
-fc.fillText('SPEED '+Math.hypot(ship.vx,ship.vy,ship.vz).toFixed(2)+'  PITCH '+(ship.pitch*180/Math.PI).toFixed(0)+'°  YAW '+(ship.yaw*180/Math.PI).toFixed(0)+'°  ROLL '+(ship.roll*180/Math.PI).toFixed(0)+'°',12,39);
-fc.strokeStyle='#456b7d';fc.beginPath();fc.moveTo(310,200);fc.lineTo(330,200);fc.moveTo(320,190);fc.lineTo(320,210);fc.stroke();
+const nose=project(verts[0]);if(nose){flightCtx.fillStyle='#ffd38b';flightCtx.beginPath();flightCtx.arc(nose.x,nose.y,3,0,Math.PI*2);flightCtx.fill()}
+flightCtx.fillStyle='#e2e8f0';flightCtx.font='12px monospace';flightCtx.fillText('PARTICLE FLIGHT · CAVE-001 · TICK '+step,12,20);
+flightCtx.fillText('SPEED '+Math.hypot(ship.vx,ship.vy,ship.vz).toFixed(2)+'  PITCH '+(ship.pitch*180/Math.PI).toFixed(0)+'°  YAW '+(ship.yaw*180/Math.PI).toFixed(0)+'°  ROLL '+(ship.roll*180/Math.PI).toFixed(0)+'°',12,39);
+flightCtx.strokeStyle='#456b7d';flightCtx.beginPath();flightCtx.moveTo(310,200);flightCtx.lineTo(330,200);flightCtx.moveTo(320,190);flightCtx.lineTo(320,210);flightCtx.stroke();
 flightStats.textContent='Ejections '+flightEjections+' · lasers '+flightLasers+' · distance '+Math.hypot(ship.x,ship.y,ship.z).toFixed(1)+' · trail '+flightTrail.length+' samples · '+(playing?'running':'paused');
 flightEvents.textContent=flightSignals.length?flightSignals.join('  |  '):'No ejections yet.';
 }
