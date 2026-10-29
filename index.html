@@ -4,7 +4,16 @@
 *{box-sizing:border-box}body{margin:0;background:#090f19;color:#e2e8f0;font:15px system-ui}.wrap{max-width:1000px;margin:auto;padding:22px}header{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap}h1{letter-spacing:.12em}small,.muted{color:#94a3b8}nav,.buttons{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}button{background:#1e293b;color:white;border:1px solid #475569;border-radius:8px;padding:10px 14px;cursor:pointer}button:hover,button.selected{border-color:#67e8f9;color:#67e8f9}.panel{border:1px solid #334155;border-radius:12px;padding:16px;background:#111c2b}.layout{display:grid;grid-template-columns:minmax(0,1fr) 230px;gap:16px}.studio-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.studio-grid h3{font-size:12px;letter-spacing:.1em}.studio-grid p{font-size:12px}@media(max-width:720px){.studio-grid{grid-template-columns:1fr}}canvas{display:block;width:100%;aspect-ratio:4/3;image-rendering:pixelated;background:#080d17;border:1px solid #334155;border-radius:8px}.hidden{display:none}#status{color:#a5f3fc;min-height:3em;line-height:1.5}.dpad{display:flex;gap:6px;margin-top:10px}kbd{background:#334155;padding:2px 5px;border-radius:3px}@media(max-width:680px){.layout{grid-template-columns:1fr}.wrap{padding:12px}}
 </style>
 <div class="wrap"><header><div><h1>◯ THE CAVE</h1><small>GENERATION 0 · A GAME THAT GROWS</small></div><small>Independent prototype · v0.1</small></header>
-<nav><button data-tab="play" class="selected">Play</button><button data-tab="rules">Rule Map</button><button data-tab="stems">Stems</button><button data-tab="bigbang">Big Bang Lab</button><button data-tab="studio">Perception Studio</button><button data-tab="platformer">Particle Platformer</button></nav>
+<nav><button data-tab="play" class="selected">Play</button><button data-tab="rules">Rule Map</button><button data-tab="stems">Stems</button><button data-tab="bigbang">Big Bang Lab</button><button data-tab="studio">Perception Studio</button><button data-tab="platformer">Particle Platformer</button><button data-tab="flight">Particle Flight</button></nav>
+<section id="flight" class="panel hidden">
+<h2>✦ Particle Flight</h2>
+<p class="muted">An open 3D flight laboratory. The same blob ejections control thrust, pitch, yaw, roll and lasers. The ship never feeds anything back to the blob.</p>
+<canvas id="flight-screen" width="640" height="400" style="aspect-ratio:8/5"></canvas>
+<div class="buttons"><button id="flight-replay">Replay seed + flight</button><button id="flight-reset">Reset ship only</button><button id="flight-trail">Clear flight trail</button><label>Mapping <select id="flight-mapping"><option value="vector">Trajectory vectors</option><option value="type">Type-driven</option><option value="hybrid">Type × trajectory</option></select></label><label>Response <input id="flight-response" type="range" min="10" max="150" value="65"></label></div>
+<p id="flight-stats" class="muted">Waiting for particle ejections.</p>
+<p class="muted">Cyan, orange and pink particles have distinct mappings. Each ejection creates a short flight-control impulse; speed and trajectory affect its magnitude. The ship keeps its momentum, so repeated events accumulate into a path. Space is open, with visual reference rings and targets. Lasers are visual only.</p>
+<h3>Recent flight signals</h3><p id="flight-events" class="muted">No ejections yet.</p>
+</section>
 <section id="platformer" class="panel hidden">
 <h2>✦ Particle Platformer</h2>
 <p class="muted">A one-way instrument: ejected particles become button presses. The platformer never sends information, rewards or forces back to the 128-atom blob.</p>
@@ -71,7 +80,7 @@ document.addEventListener('keydown',e=>{const k=e.key.toLowerCase();if(['arrowup
 document.getElementById('interact').onclick=interact;document.getElementById('circle').onclick=circle;document.getElementById('spawn').onclick=spawn;document.getElementById('reset').onclick=init;
 document.getElementById('save').onclick=()=>{localStorage.setItem(saveKey,JSON.stringify({atoms,edges,options:Object.fromEntries(Object.entries(opts).map(([k,v])=>[k,v.checked]))}));status.textContent='Five-atom world saved in this browser.';document.getElementById('saved').textContent='Five-atom save available.'};
 document.getElementById('load').onclick=()=>{try{const s=JSON.parse(localStorage.getItem(saveKey));if(!s||s.atoms?.length!==5||!Array.isArray(s.edges))throw Error();atoms=s.atoms;edges=s.edges;for(const [k,v] of Object.entries(s.options||{}))if(opts[k])opts[k].checked=!!v;update();status.textContent='Five-atom world loaded.'}catch{status.textContent='No valid five-atom save found.'}};
-document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('selected',x===b));['play','rules','stems','bigbang','studio','platformer'].forEach(id=>document.getElementById(id).classList.toggle('hidden',id!==b.dataset.tab))});
+document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('selected',x===b));['play','rules','stems','bigbang','studio','platformer','flight'].forEach(id=>document.getElementById(id).classList.toggle('hidden',id!==b.dataset.tab))});
 document.querySelectorAll('[data-dir]').forEach(b=>{b.addEventListener('pointerdown',e=>{e.preventDefault();touch=b.dataset.dir;b.setPointerCapture(e.pointerId)});b.addEventListener('pointerup',()=>touch='');b.addEventListener('pointercancel',()=>touch='')});
 init();if(localStorage.getItem(saveKey))document.getElementById('saved').textContent='Five-atom save available.';requestAnimationFrame(tick);
 })();
@@ -83,7 +92,7 @@ const sketchCanvas=document.getElementById('sketch-screen'),sketchCtx=sketchCanv
 let particles=[],bonds=new Map(),scar=new Map(),step=0,playing=true,carry=0,previous=0,impulses=[],rng,broken=0,peakStrain=0,shed=0,closures=0,reopenings=0,trail=[],departures=[],tests=[],previousOutside=new Set(),motionSample=null,insideCount=0,containmentCrossings=0,insidePrevious=new Set(),adaptedCount=0,padHeld=false,padIndex=null,angularSample=null,angularPrevSign=0,angularReversals=0,angularHistory=[],angularPrevPositions=null,angularPrevRings=new Map(),angularObserved=null;
 function hash(s){let h=2166136261;for(let i=0;i<s.length;i++){h=Math.imul(h^s.charCodeAt(i),16777619)}return h>>>0}
 function random(){let t=rng+=0x6D2B79F5;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return ((t^t>>>14)>>>0)/4294967296}
-function reset(){platformResetAll();clearSketch();atomMemories=Array.from({length:128},()=>[]);memoryForceMean=0;rng=hash(SEED);particles=[];bonds.clear();scar.clear();step=0;carry=0;impulses=[];broken=0;peakStrain=0;shed=0;closures=0;reopenings=0;trail=[];departures=[];tests=[];previousOutside=new Set();motionSample=null;insideCount=0;containmentCrossings=0;insidePrevious.clear();adaptedCount=0;angularSample=null;angularPrevSign=0;angularReversals=0;angularHistory=[];angularPrevPositions=null;angularPrevRings=new Map();angularObserved=null;for(let i=0;i<N;i++){let a=random()*Math.PI*2,r=Math.sqrt(random())*9,s=.45+random()*1.4;let x=W/2+Math.cos(a)*r,y=H/2+Math.sin(a)*r,kind=i%3;if(imageField){const cell=imageField.cells[Math.floor(random()*imageField.cells.length)];x=Math.min(W-5,Math.max(5,(cell.x+random())*W/imageField.w));y=Math.min(H-5,Math.max(5,(cell.y+random())*H/imageField.h));kind=cell.kind}particles.push({x,y,vx:Math.cos(a)*s*2+(random()-.5)*.3,vy:Math.sin(a)*s*2+(random()-.5)*.3,m:.8+random()*.8,kind,radius:2.7,mutation:0,threshold:5+random()*4,rate:.6+random()*.8,capacityBase:3+Math.floor(random()*4),capacity:4,connectBias:.6+random()*.8,history:[]})}notice.textContent='Replayed seed '+SEED+' from tick zero.';render()}
+function reset(){platformResetAll();flightResetAll();clearSketch();atomMemories=Array.from({length:128},()=>[]);memoryForceMean=0;rng=hash(SEED);particles=[];bonds.clear();scar.clear();step=0;carry=0;impulses=[];broken=0;peakStrain=0;shed=0;closures=0;reopenings=0;trail=[];departures=[];tests=[];previousOutside=new Set();motionSample=null;insideCount=0;containmentCrossings=0;insidePrevious.clear();adaptedCount=0;angularSample=null;angularPrevSign=0;angularReversals=0;angularHistory=[];angularPrevPositions=null;angularPrevRings=new Map();angularObserved=null;for(let i=0;i<N;i++){let a=random()*Math.PI*2,r=Math.sqrt(random())*9,s=.45+random()*1.4;let x=W/2+Math.cos(a)*r,y=H/2+Math.sin(a)*r,kind=i%3;if(imageField){const cell=imageField.cells[Math.floor(random()*imageField.cells.length)];x=Math.min(W-5,Math.max(5,(cell.x+random())*W/imageField.w));y=Math.min(H-5,Math.max(5,(cell.y+random())*H/imageField.h));kind=cell.kind}particles.push({x,y,vx:Math.cos(a)*s*2+(random()-.5)*.3,vy:Math.sin(a)*s*2+(random()-.5)*.3,m:.8+random()*.8,kind,radius:2.7,mutation:0,threshold:5+random()*4,rate:.6+random()*.8,capacityBase:3+Math.floor(random()*4),capacity:4,connectBias:.6+random()*.8,history:[]})}notice.textContent='Replayed seed '+SEED+' from tick zero.';render()}
 function key(i,j){return i*N+j}
 function impulse(x,y,strength=3){impulses.push({at:step,x,y,strength});applyImpulse(x,y,strength)}
 function applyImpulse(x,y,strength,dirX=0,dirY=0){for(let i=0;i<N;i++){const p=particles[i],dx=p.x-x,dy=p.y-y,d=Math.hypot(dx,dy)+.01;if(d<120){const k=strength*(1-d/120);p.vx+=(dx/d+dirX*1.6)*k;p.vy+=(dy/d+dirY*1.6)*k}}}
@@ -161,7 +170,7 @@ for(let k=0;k<N;k++){if(k===i||k===j)continue;const p=particles[k],dx=p.x-cx,dy=
 if(interior.checked&&closure.checked)applyContainment();
 if(adapt.checked){adaptedCount=particles.filter(p=>p.mutation>.35&&(p.adaptPressure||0)>.15).length}else adaptedCount=0;
 if(tails.checked&&step%4===0)recordParticleHistory();
-connectivityUpdate(crowding);step++;platformObserveEjections();platformAdvance();if(step%MEMORY_INTERVAL===0)sampleAtomMemories();if(step%120===0)memoryStatus.textContent='Memory '+memoryMode.value+' · strength '+memoryStrength.value+'% · '+atomMemories.reduce((s,a)=>s+a.length,0)+' stored samples · mean force '+memoryForceMean.toFixed(5)+' / step';drawSketchStep();memoryForceMean=0;if(motion.checked&&step%30===0)sampleMotion();if(angular.checked&&step%30===0)sampleAngular()}
+connectivityUpdate(crowding);step++;platformObserveEjections();platformAdvance();flightAdvance();if(step%MEMORY_INTERVAL===0)sampleAtomMemories();if(step%120===0)memoryStatus.textContent='Memory '+memoryMode.value+' · strength '+memoryStrength.value+'% · '+atomMemories.reduce((s,a)=>s+a.length,0)+' stored samples · mean force '+memoryForceMean.toFixed(5)+' / step';drawSketchStep();memoryForceMean=0;if(motion.checked&&step%30===0)sampleMotion();if(angular.checked&&step%30===0)sampleAngular()}
 function applyContainment(){
 const currentlyInside=new Set();insideCount=0;
 for(const [id,bond] of bonds){if(!bond.closed)continue;
@@ -380,6 +389,77 @@ const studioSourceCtx=studioSource.getContext('2d'),studioBrainCtx=studioBrain.g
 const studioInput=document.getElementById('studio-image'),studioPlay=document.getElementById('studio-play'),studioMemoryMode=document.getElementById('studio-memory'),studioMemoryStrength=document.getElementById('studio-memory-strength');
 function studioSave(canvas,prefix){const link=document.createElement('a');link.download=prefix+'-tick-'+step+'.png';link.href=canvas.toDataURL('image/png');link.click()}
 
+
+const flightCanvas=document.getElementById('flight-screen'),fc=flightCanvas.getContext('2d'),flightStats=document.getElementById('flight-stats'),flightEvents=document.getElementById('flight-events'),flightMapping=document.getElementById('flight-mapping'),flightResponse=document.getElementById('flight-response');
+let ship,flightTrail=[],flightShots=[],flightSignals=[],flightEjections=0,flightLasers=0,flightTick=0;
+function flightResetShip(){ship={x:0,y:0,z:0,vx:0,vy:0,vz:0,pitch:0,yaw:0,roll:0,dp:0,dy:0,dr:0,thrust:0};flightTrail=[];flightShots=[]}
+function flightResetAll(){flightResetShip();flightSignals=[];flightEjections=0;flightLasers=0;flightTick=0}
+function flightRotate(v,pitch=ship.pitch,yaw=ship.yaw,roll=ship.roll){
+let x=v.x,y=v.y,z=v.z,c=Math.cos(roll),s=Math.sin(roll);[x,y]=[x*c-y*s,x*s+y*c];
+c=Math.cos(pitch);s=Math.sin(pitch);[y,z]=[y*c-z*s,y*s+z*c];
+c=Math.cos(yaw);s=Math.sin(yaw);[x,z]=[x*c+z*s,-x*s+z*c];return {x,y,z}
+}
+function flightOnEjection(p,dx,dy,outward,atom){
+if(!ship)return;
+const m=flightMapping.value,kind=((p.kind%3)+3)%3,rad=Math.hypot(dx,dy)||1,nx=dx/rad,ny=dy/rad;
+const strength=Math.min(2.5,Math.max(.25,Math.hypot(p.vx,p.vy)/3))*(Number(flightResponse.value)/65);
+let thrust=0,pitch=0,yaw=0,roll=0,fire=false;
+if(m==='vector'){thrust=Math.max(0,-ny)*strength;yaw=nx*strength;pitch=-ny*strength*.7;roll=nx*strength*.4;fire=kind===2}
+else if(m==='type'){if(kind===0){yaw=nx*strength;pitch=-ny*strength}else if(kind===1){thrust=strength;roll=nx*strength}else{fire=true;thrust=.2*strength}}
+else{if(kind===0){yaw=nx*strength;pitch=-ny*strength}else if(kind===1){thrust=Math.max(.25,-ny+0.4)*strength;roll=nx*strength}else{fire=true;pitch=-ny*strength*.3}}
+ship.thrust+=thrust*.025;ship.dy+=yaw*.008;ship.dp+=pitch*.008;ship.dr+=roll*.01;
+const labels=[];if(thrust)labels.push('thrust');if(yaw)labels.push('yaw');if(pitch)labels.push('pitch');if(roll)labels.push('roll');
+if(fire){flightLasers++;labels.push('LASER');const forward=flightRotate({x:0,y:0,z:1});flightShots.push({x:ship.x,y:ship.y,z:ship.z,vx:forward.x*7+ship.vx,vy:forward.y*7+ship.vy,vz:forward.z*7+ship.vz,age:0})}
+flightEjections++;flightSignals.unshift('#'+atom+' type '+kind+' · '+labels.join(' + ')+' @ '+step);if(flightSignals.length>6)flightSignals.length=6;
+}
+function flightAdvance(){
+if(!ship)return;
+flightTick++;
+ship.pitch+=ship.dp;ship.yaw+=ship.dy;ship.roll+=ship.dr;
+ship.dp*=.985;ship.dy*=.985;ship.dr*=.985;
+const forward=flightRotate({x:0,y:0,z:1}),t=Math.min(.15,ship.thrust);
+ship.vx+=forward.x*t;ship.vy+=forward.y*t;ship.vz+=forward.z*t;
+ship.vx*=.997;ship.vy*=.997;ship.vz*=.997;ship.thrust*=.94;
+ship.x+=ship.vx;ship.y+=ship.vy;ship.z+=ship.vz;
+if(flightTick%3===0){flightTrail.push({x:ship.x,y:ship.y,z:ship.z});if(flightTrail.length>600)flightTrail.shift()}
+for(const b of flightShots){b.x+=b.vx;b.y+=b.vy;b.z+=b.vz;b.age++}
+flightShots=flightShots.filter(b=>b.age<75);
+}
+function flightRender(){
+if(document.getElementById('flight').classList.contains('hidden')||!ship)return;
+const w=640,h=400;fc.fillStyle='#080f1f';fc.fillRect(0,0,w,h);
+const camDistance=90,scale=310;
+const cameraOffset=flightRotate({x:0,y:17,z:-camDistance});
+const camera={x:ship.x+cameraOffset.x,y:ship.y+cameraOffset.y,z:ship.z+cameraOffset.z};
+const cameraYaw=ship.yaw,cameraPitch=ship.pitch*.45;
+function project(v){
+let x=v.x-camera.x,y=v.y-camera.y,z=v.z-camera.z,c=Math.cos(-cameraYaw),s=Math.sin(-cameraYaw);
+[x,z]=[x*c+z*s,-x*s+z*c];c=Math.cos(-cameraPitch);s=Math.sin(-cameraPitch);[y,z]=[y*c-z*s,y*s+z*c];
+if(z<2)return null;const f=scale/z;return {x:w/2+x*f,y:h*.52-y*f,z}
+}
+const worldObjects=[];
+for(let i=0;i<120;i++){const x=((i*137.41)%1600)-800,y=((i*283.37)%900)-450,z=((i*417.19)%2000)-500;worldObjects.push({x,y,z})}
+for(const p of worldObjects){const q=project(p);if(!q||q.x<0||q.x>w||q.y<0||q.y>h)continue;const r=Math.max(.6,Math.min(2.3,100/q.z));fc.fillStyle='#8da9c6';fc.fillRect(q.x,q.y,r,r)}
+function line(a,b,color,width=1){const x=project(a),y=project(b);if(!x||!y)return;fc.strokeStyle=color;fc.lineWidth=width;fc.beginPath();fc.moveTo(x.x,x.y);fc.lineTo(y.x,y.y);fc.stroke()}
+for(let k=0;k<16;k++){const z=k*160-300;for(let x=-3;x<=3;x++){line({x:x*90,y:-70,z},{x:x*90,y:-70,z:z+160},'#1c3850');}line({x:-270,y:-70,z},{x:270,y:-70,z},'#1c3850')}
+for(let i=1;i<flightTrail.length;i++)line(flightTrail[i-1],flightTrail[i],'#56dfca',1.6);
+for(let i=0;i<12;i++){const z=200+i*220,x=Math.sin(i*2.4)*160,y=Math.cos(i*1.8)*90;const pts=[];for(let a=0;a<=24;a++){const t=a*Math.PI/12;pts.push({x:x+Math.cos(t)*25,y:y+Math.sin(t)*25,z})}for(let a=1;a<pts.length;a++)line(pts[a-1],pts[a],'#d5a65d',1.5)}
+for(const b of flightShots){const next={x:b.x+b.vx*2,y:b.y+b.vy*2,z:b.z+b.vz*2};line(b,next,'#f783a7',3)}
+// Draw a third-person ship at its real world pose, with wings, cockpit and engine.
+const shape=[{x:0,y:0,z:14},{x:-4,y:0,z:-6},{x:4,y:0,z:-6},{x:-15,y:-1,z:-6},{x:15,y:-1,z:-6},{x:-5,y:0,z:-11},{x:5,y:0,z:-11}];
+const verts=shape.map(v=>{const t=flightRotate(v);return {x:t.x+ship.x,y:t.y+ship.y,z:t.z+ship.z}});
+const edges=[[0,1],[0,2],[1,3],[2,4],[3,5],[4,6],[5,6],[1,2],[3,4]];
+for(const [a,b] of edges)line(verts[a],verts[b],'#a5e2ed',3);
+const nose=project(verts[0]);if(nose){fc.fillStyle='#ffd38b';fc.beginPath();fc.arc(nose.x,nose.y,3,0,Math.PI*2);fc.fill()}
+fc.fillStyle='#e2e8f0';fc.font='12px monospace';fc.fillText('PARTICLE FLIGHT · CAVE-001 · TICK '+step,12,20);
+fc.fillText('SPEED '+Math.hypot(ship.vx,ship.vy,ship.vz).toFixed(2)+'  PITCH '+(ship.pitch*180/Math.PI).toFixed(0)+'°  YAW '+(ship.yaw*180/Math.PI).toFixed(0)+'°  ROLL '+(ship.roll*180/Math.PI).toFixed(0)+'°',12,39);
+fc.strokeStyle='#456b7d';fc.beginPath();fc.moveTo(310,200);fc.lineTo(330,200);fc.moveTo(320,190);fc.lineTo(320,210);fc.stroke();
+flightStats.textContent='Ejections '+flightEjections+' · lasers '+flightLasers+' · distance '+Math.hypot(ship.x,ship.y,ship.z).toFixed(1)+' · trail '+flightTrail.length+' samples · '+(playing?'running':'paused');
+flightEvents.textContent=flightSignals.length?flightSignals.join('  |  '):'No ejections yet.';
+}
+document.getElementById('flight-replay').addEventListener('click',()=>{document.getElementById('bang-reset').click();flightRender()});
+document.getElementById('flight-reset').addEventListener('click',()=>{flightResetShip();flightRender()});
+document.getElementById('flight-trail').addEventListener('click',()=>{flightTrail=[];flightRender()});
 const platformCanvas=document.getElementById('platform-screen'),pg=platformCanvas.getContext('2d'),platformStats=document.getElementById('platform-stats'),platformEvents=document.getElementById('platform-events'),platformMapping=document.getElementById('platform-mapping'),platformDuration=document.getElementById('platform-duration');
 let platformX=36,platformY=280,platformVX=0,platformVY=0,platformGround=true,platformHeld={left:0,right:0,jump:0},platformEventLog=[],platformCount=0,platformDeaths=0,platformWins=0,platformPrevMain=new Set(),platformArmed=new Set(),platformLastMainCenter={x:320,y:240};
 const platformSegments=[[0,132,312],[168,265,312],[302,407,277],[444,565,312],[580,640,312]];
@@ -408,7 +488,7 @@ if(current.has(i)||!platformArmed.has(i))continue;
 const p=particles[i],dx=p.x-cx,dy=p.y-cy,rad=Math.hypot(dx,dy)||1,outward=(p.vx*dx+p.vy*dy)/rad;
 const command=platformCommand(p,dx,dy);
 platformHeld[command]=Math.max(platformHeld[command],Number(platformDuration.value));
-platformCount++;platformEventLog.unshift({tick:step,atom:i,type:p.kind,command,outward});if(platformEventLog.length>8)platformEventLog.length=8;
+platformCount++;flightOnEjection(p,dx,dy,outward,i);platformEventLog.unshift({tick:step,atom:i,type:p.kind,command,outward});if(platformEventLog.length>8)platformEventLog.length=8;
 platformArmed.delete(i);
 }
 platformLastMainCenter={x:cx,y:cy};
@@ -469,7 +549,7 @@ document.getElementById('studio-snapshot').addEventListener('click',()=>studioSa
 document.getElementById('studio-memory-save').addEventListener('click',()=>studioSave(studioMemoryView,'the-cave-position-memory'));
 document.getElementById('studio-clear-drawing').addEventListener('click',()=>clearSketch());
 document.getElementById('studio-lab').addEventListener('click',()=>document.querySelector('[data-tab="bigbang"]').click());
-function loop(now){pollController();if(!previous)previous=now;let elapsed=Math.min((now-previous)/1000,.1);previous=now;if(playing){carry+=elapsed*60*Number(speed.value);let count=0;while(carry>=1&&count<128){physics();advanceAB();carry--;count++}if(count===128)carry=0}render();if(++perceptionFrame%2===0){studioRender();platformRender();perceive();renderFibers();renderBrainStatic();renderMemoryStatic();drawSensoryObservatory();drawAB()}requestAnimationFrame(loop)}
+function loop(now){pollController();if(!previous)previous=now;let elapsed=Math.min((now-previous)/1000,.1);previous=now;if(playing){carry+=elapsed*60*Number(speed.value);let count=0;while(carry>=1&&count<128){physics();advanceAB();carry--;count++}if(count===128)carry=0}render();if(++perceptionFrame%2===0){studioRender();platformRender();flightRender();perceive();renderFibers();renderBrainStatic();renderMemoryStatic();drawSensoryObservatory();drawAB()}requestAnimationFrame(loop)}
 memoryMode.addEventListener('change',()=>{memoryStatus.textContent='Memory '+memoryMode.value+' at tick '+step+'; stored history preserved.'});memoryStrength.addEventListener('input',()=>{memoryStatus.textContent='Memory strength '+memoryStrength.value+'% · history preserved.'});function liveChange(label){notice.textContent='Live rule change at tick '+step+': '+label+'. World state preserved.';render()}
 adapt.addEventListener('change',()=>liveChange('local adaptation '+(adapt.checked?'ON':'OFF')));
 divideForce.addEventListener('change',()=>liveChange('center-outward force '+(divideForce.checked?'ON':'OFF')));
@@ -489,6 +569,6 @@ document.getElementById('bang-pulse').onclick=()=>impulse(W/2,H/2,3);
 canvas.addEventListener('pointerdown',e=>{const r=canvas.getBoundingClientRect();impulse((e.clientX-r.left)*W/r.width,(e.clientY-r.top)*H/r.height,3);notice.textContent='Impulse applied at tick '+step+'.'});
 window.addEventListener('gamepadconnected',e=>{padIndex=e.gamepad.index;padStatus.textContent='Controller connected: '+e.gamepad.id+' · A to pulse, left stick to steer.'});
 window.addEventListener('gamepaddisconnected',e=>{if(padIndex===e.gamepad.index){padIndex=null;padHeld=false}});
-reset();platformRender();perceive();renderFibers();renderBrainStatic();drawSensoryObservatory();drawAB();requestAnimationFrame(loop);
+reset();platformRender();flightRender();perceive();renderFibers();renderBrainStatic();drawSensoryObservatory();drawAB();requestAnimationFrame(loop);
 })();
 </script></html>
