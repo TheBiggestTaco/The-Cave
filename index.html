@@ -134,7 +134,7 @@ const senseCanvas=document.getElementById('sense-screen'),senseCtx=senseCanvas.g
 function sampleSensoryForce(p){
 const field=platformFeedback&&platformFeedback.checked?platformSensoryField:imageField;
 if(!field)return {light:0,fx:0,fy:0};
-wf=field.w,hf=field.h,gx=Math.max(1,Math.min(wf-2,Math.floor(p.x/W*wf))),gy=Math.max(1,Math.min(hf-2,Math.floor(p.y/H*hf))),k=gy*wf+gx;
+const wf=field.w,hf=field.h,gx=Math.max(1,Math.min(wf-2,Math.floor(p.x/W*wf))),gy=Math.max(1,Math.min(hf-2,Math.floor(p.y/H*hf))),k=gy*wf+gx;
 return {light:field.light[k],fx:(field.light[k+1]-field.light[k-1])*.011,fy:(field.light[k+wf]-field.light[k-wf])*.011};
 }
 function drawSensoryObservatory(){
