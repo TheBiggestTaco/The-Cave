@@ -16,12 +16,16 @@
 </section>
 <section id="platformer" class="panel hidden">
 <h2>✦ Particle Platformer</h2>
-<p class="muted">A one-way instrument: ejected particles become button presses. The platformer never sends information, rewards or forces back to the 128-atom blob.</p>
+<p class="muted">Ejected particles become button presses. Optional visual feedback sends the entire level back as sensory forces; with feedback off, control remains one-way.</p>
 <canvas id="platform-screen" width="640" height="360" style="aspect-ratio:16/9"></canvas>
 <div class="buttons"><label><input type="checkbox" id="platform-feedback"> Feed full platformer view into blob sensory input</label><label>Feedback strength <input type="range" id="platform-feedback-strength" min="0" max="300" value="100"></label></div>
 <p class="muted">Live sensory source — the entire level, not a cropped camera. When enabled, this frame is sampled at 64 × 48 and applies image-gradient forces to the blob each physics tick. Switch off to restore the original open-loop behavior.</p>
 <canvas id="platform-source" width="640" height="360" style="aspect-ratio:16/9"></canvas>
 <p id="platform-feedback-status" class="muted">Feedback off · original independent blob.</p>
+<h3>Actual sensory image · 64 × 48</h3>
+<p class="muted">Grayscale values supplied to the sensory-force calculation. Arrows below show the force sampled at each atom's position (magnified for visibility).</p>
+<canvas id="platform-sensory-preview" width="640" height="480" style="aspect-ratio:4/3;image-rendering:pixelated"></canvas>
+<p id="platform-sensory-stats" class="muted">Enable feedback to inspect the sensory field.</p>
 <div class="buttons"><button id="platform-replay">Replay seed + level</button><button id="platform-reset">Reset level only</button><label>Mapping <select id="platform-mapping"><option value="direction">Trajectory first</option><option value="type">Particle type first</option><option value="hybrid">Type × trajectory</option></select></label><label>Command duration <input id="platform-duration" type="range" min="5" max="45" value="18"></label></div>
 <p id="platform-stats" class="muted">Waiting for the first ejection.</p>
 <p class="muted">An event is emitted when an atom that was in the largest bonded cluster leaves it. Reabsorption rearms that atom, so brief departures count. Initially unbonded atoms do not count as ejections. Direction is measured relative to the blob's center and the outgoing velocity. Commands last a fixed number of physics ticks; changing the mapping does not change the blob.</p>
@@ -513,6 +517,7 @@ if(platformX>620&&platformY<320){platformWins++;platformResetLevel()}
 }
 
 const platformFeedback=document.getElementById('platform-feedback'),platformFeedbackStrength=document.getElementById('platform-feedback-strength'),platformFeedbackStatus=document.getElementById('platform-feedback-status'),platformSource=document.getElementById('platform-source'),platformSourceCtx=platformSource.getContext('2d');
+const platformPreview=document.getElementById('platform-sensory-preview'),platformPreviewCtx=platformPreview.getContext('2d'),platformSensoryStats=document.getElementById('platform-sensory-stats');
 const platformSample=document.createElement('canvas');platformSample.width=64;platformSample.height=48;
 const platformSampleCtx=platformSample.getContext('2d',{willReadFrequently:true});
 let platformSensoryField=null;
@@ -535,9 +540,19 @@ platformSensoryField={w:64,h:48,light};
 }
 platformFeedback.addEventListener('change',()=>{if(platformFeedback.checked)platformUpdateSensory();else platformSensoryField=null;platformFeedbackStatus.textContent=platformFeedback.checked?'Feedback ON · full level is driving blob sensory forces.':'Feedback OFF · original independent blob.'});
 platformFeedbackStrength.addEventListener('input',()=>{if(platformFeedback.checked)platformUpdateSensory()});
+function platformRenderSensory(){
+const c=platformPreviewCtx;c.fillStyle='#091421';c.fillRect(0,0,640,480);
+if(!platformFeedback.checked||!platformSensoryField){c.fillStyle='#cbd5e1';c.font='15px monospace';c.fillText('FEEDBACK OFF — NO PLATFORMER IMAGE SENT',24,42);platformSensoryStats.textContent='Open-loop baseline: no platformer sensory forces.';return}
+const field=platformSensoryField,im=c.createImageData(64,48),gain=Math.max(1,Number(platformFeedbackStrength.value)/100);
+for(let i=0;i<field.light.length;i++){const value=Math.max(0,Math.min(255,Math.round(field.light[i]/gain*255))),j=i*4;im.data[j]=value;im.data[j+1]=value;im.data[j+2]=value;im.data[j+3]=255}
+platformSampleCtx.putImageData(im,0,0);c.imageSmoothingEnabled=false;c.drawImage(platformSample,0,0,640,480);
+let total=0,maximum=0;
+for(const p of particles){const s=sampleSensoryForce(p),m=Math.hypot(s.fx,s.fy);total+=m;maximum=Math.max(maximum,m);const x=p.x,y=p.y,ex=x+s.fx*3000,ey=y+s.fy*3000;c.strokeStyle='#ff9d4d';c.lineWidth=1.4;c.beginPath();c.moveTo(x,y);c.lineTo(ex,ey);c.stroke();c.fillStyle='#51e5e5';c.beginPath();c.arc(x,y,2.4,0,Math.PI*2);c.fill()}
+platformSensoryStats.textContent='128 atom positions · mean force '+(total/Math.max(1,particles.length)).toFixed(6)+' · max force '+maximum.toFixed(6)+' · orange arrows magnified 3000× · strength '+platformFeedbackStrength.value+'%';
+}
 function platformRender(){
 if(document.getElementById('platformer').classList.contains('hidden'))return;
-platformDrawSource();pg.drawImage(platformSource,0,0);
+platformDrawSource();platformRenderSensory();pg.drawImage(platformSource,0,0);
 /* Original overlay follows; source remains HUD-free for sensing. */
 pg.fillStyle='#0b1422';pg.fillRect(0,0,640,360);
 pg.strokeStyle='#1a3043';pg.lineWidth=1;for(let x=0;x<640;x+=32){pg.beginPath();pg.moveTo(x,0);pg.lineTo(x,360);pg.stroke()}
