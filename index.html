@@ -22,7 +22,7 @@
 <p class="muted">Live sensory source — the entire level, not a cropped camera. When enabled, this frame is sampled at 64 × 48 and applies image-gradient forces to the blob each physics tick. Switch off to restore the original open-loop behavior.</p>
 <canvas id="platform-source" width="640" height="360" style="aspect-ratio:16/9"></canvas>
 <p id="platform-feedback-status" class="muted">Feedback off · original independent blob.</p>
-<h3>Actual sensory image · 64 × 48</h3>
+<div class="buttons"><label>Sensor mode <select id="platform-lens-mode"><option value="point">Point sensors (baseline)</option><option value="circle">Circular lenses</option><option value="bonded">Bonded ring lenses</option></select></label><label>Lens radius <input id="platform-lens-radius" type="range" min="2" max="80" value="24"> <span id="platform-lens-value">24 px</span></label></div><p class="muted">Circular lenses compare brightness across their entire disk. Bonded ring lenses activate for atoms in detected closed bond cycles, sized by the cycle radius (up to the selected maximum); other atoms retain point sensing.</p><h3>Actual sensory image · 64 × 48</h3>
 <p class="muted">Grayscale values supplied to the sensory-force calculation. Arrows below show the force sampled at each atom's position (magnified for visibility).</p>
 <canvas id="platform-sensory-preview" width="640" height="480" style="aspect-ratio:4/3;image-rendering:pixelated"></canvas>
 <p id="platform-sensory-stats" class="muted">Enable feedback to inspect the sensory field.</p>
@@ -135,9 +135,24 @@ notice.textContent='Controller pulse at tick '+step+(active?' · directed ('+x.t
 padHeld=pressed;
 }
 const senseCanvas=document.getElementById('sense-screen'),senseCtx=senseCanvas.getContext('2d'),senseStatus=document.getElementById('sense-status'),senseVectors=document.getElementById('sense-vectors'),senseImage=document.getElementById('sense-image');
+function platformCircleSense(p,field){
+const mode=platformLensMode.value;if(mode==='point')return null;
+let radius=Number(platformLensRadius.value);
+if(mode==='bonded'){const id=particles.indexOf(p),r=platformRingRadius[id];if(!r)return null;radius=Math.min(radius,Math.max(2,r))}
+const cx=p.x/W*field.w,cy=p.y/H*field.h,rx=Math.max(1,radius/W*field.w),ry=Math.max(1,radius/H*field.h);
+let l=0,r=0,t=0,b=0,nl=0,nr=0,nt=0,nb=0,sum=0,n=0;
+for(let y=Math.max(0,Math.floor(cy-ry));y<=Math.min(field.h-1,Math.ceil(cy+ry));y++)for(let x=Math.max(0,Math.floor(cx-rx));x<=Math.min(field.w-1,Math.ceil(cx+rx));x++){
+const dx=(x+.5-cx)/rx,dy=(y+.5-cy)/ry;if(dx*dx+dy*dy>1)continue;
+const v=field.light[y*field.w+x];sum+=v;n++;
+if(dx<0){l+=v;nl++}else{r+=v;nr++}
+if(dy<0){t+=v;nt++}else{b+=v;nb++}
+}
+return {light:sum/Math.max(1,n),fx:(r/Math.max(1,nr)-l/Math.max(1,nl))*.011,fy:(b/Math.max(1,nb)-t/Math.max(1,nt))*.011,radius};
+}
 function sampleSensoryForce(p){
 const field=platformFeedback&&platformFeedback.checked?platformSensoryField:imageField;
 if(!field)return {light:0,fx:0,fy:0};
+if(platformFeedback.checked&&platformSensoryField){const lens=platformCircleSense(p,field);if(lens)return lens}
 const wf=field.w,hf=field.h,gx=Math.max(1,Math.min(wf-2,Math.floor(p.x/W*wf))),gy=Math.max(1,Math.min(hf-2,Math.floor(p.y/H*hf))),k=gy*wf+gx;
 return {light:field.light[k],fx:(field.light[k+1]-field.light[k-1])*.011,fy:(field.light[k+wf]-field.light[k-wf])*.011};
 }
@@ -179,7 +194,7 @@ for(let k=0;k<N;k++){if(k===i||k===j)continue;const p=particles[k],dx=p.x-cx,dy=
 if(interior.checked&&closure.checked)applyContainment();
 if(adapt.checked){adaptedCount=particles.filter(p=>p.mutation>.35&&(p.adaptPressure||0)>.15).length}else adaptedCount=0;
 if(tails.checked&&step%4===0)recordParticleHistory();
-connectivityUpdate(crowding);step++;platformObserveEjections();platformAdvance();platformUpdateSensory();flightAdvance();if(step%MEMORY_INTERVAL===0)sampleAtomMemories();if(step%120===0)memoryStatus.textContent='Memory '+memoryMode.value+' · strength '+memoryStrength.value+'% · '+atomMemories.reduce((s,a)=>s+a.length,0)+' stored samples · mean force '+memoryForceMean.toFixed(5)+' / step';drawSketchStep();memoryForceMean=0;if(motion.checked&&step%30===0)sampleMotion();if(angular.checked&&step%30===0)sampleAngular()}
+connectivityUpdate(crowding);step++;platformObserveEjections();platformAdvance();platformUpdateSensory();platformUpdateRings();flightAdvance();if(step%MEMORY_INTERVAL===0)sampleAtomMemories();if(step%120===0)memoryStatus.textContent='Memory '+memoryMode.value+' · strength '+memoryStrength.value+'% · '+atomMemories.reduce((s,a)=>s+a.length,0)+' stored samples · mean force '+memoryForceMean.toFixed(5)+' / step';drawSketchStep();memoryForceMean=0;if(motion.checked&&step%30===0)sampleMotion();if(angular.checked&&step%30===0)sampleAngular()}
 function applyContainment(){
 const currentlyInside=new Set();insideCount=0;
 for(const [id,bond] of bonds){if(!bond.closed)continue;
@@ -517,6 +532,26 @@ if(platformX>620&&platformY<320){platformWins++;platformResetLevel()}
 }
 
 const platformFeedback=document.getElementById('platform-feedback'),platformFeedbackStrength=document.getElementById('platform-feedback-strength'),platformFeedbackStatus=document.getElementById('platform-feedback-status'),platformSource=document.getElementById('platform-source'),platformSourceCtx=platformSource.getContext('2d');
+const platformLensMode=document.getElementById('platform-lens-mode'),platformLensRadius=document.getElementById('platform-lens-radius'),platformLensValue=document.getElementById('platform-lens-value');
+const platformRingRadius=new Float32Array(128);
+function platformUpdateRings(){
+platformRingRadius.fill(0);
+if(!platformFeedback.checked||platformLensMode.value!=='bonded')return;
+const adj=Array.from({length:N},()=>[]);
+for(const id of bonds.keys()){const a=Math.floor(id/N),b=id%N;adj[a].push(b);adj[b].push(a)}
+// A closed cycle exists when a bond has an alternate path between its endpoints.
+for(let a=0;a<N;a++)for(const b of adj[a])if(b>a){
+const queue=[[a]],seen=new Set([a]);let path=null;
+while(queue.length){const p=queue.shift(),v=p[p.length-1];if(v===b){path=p;break}if(p.length>=9)continue;
+for(const u of adj[v]){if(v===a&&u===b||seen.has(u))continue;seen.add(u);queue.push([...p,u])}}
+if(!path||path.length<3)continue;
+let cx=0,cy=0;for(const i of path){cx+=particles[i].x;cy+=particles[i].y}cx/=path.length;cy/=path.length;
+let radius=0;for(const i of path)radius+=Math.hypot(particles[i].x-cx,particles[i].y-cy)/path.length;
+for(const i of path)platformRingRadius[i]=Math.max(platformRingRadius[i],radius);
+}
+}
+platformLensMode.addEventListener('change',()=>{platformUpdateRings();platformRenderSensory()});
+platformLensRadius.addEventListener('input',()=>{platformLensValue.textContent=platformLensRadius.value+' px';platformRenderSensory()});
 const platformPreview=document.getElementById('platform-sensory-preview'),platformPreviewCtx=platformPreview.getContext('2d'),platformSensoryStats=document.getElementById('platform-sensory-stats');
 const platformSample=document.createElement('canvas');platformSample.width=64;platformSample.height=48;
 const platformSampleCtx=platformSample.getContext('2d',{willReadFrequently:true});
@@ -547,7 +582,7 @@ const field=platformSensoryField,im=c.createImageData(64,48),gain=Math.max(1,Num
 for(let i=0;i<field.light.length;i++){const value=Math.max(0,Math.min(255,Math.round(field.light[i]/gain*255))),j=i*4;im.data[j]=value;im.data[j+1]=value;im.data[j+2]=value;im.data[j+3]=255}
 platformSampleCtx.putImageData(im,0,0);c.imageSmoothingEnabled=false;c.drawImage(platformSample,0,0,640,480);
 let total=0,maximum=0;
-for(const p of particles){const s=sampleSensoryForce(p),m=Math.hypot(s.fx,s.fy);total+=m;maximum=Math.max(maximum,m);const x=p.x,y=p.y,ex=x+s.fx*3000,ey=y+s.fy*3000;c.strokeStyle='#ff9d4d';c.lineWidth=1.4;c.beginPath();c.moveTo(x,y);c.lineTo(ex,ey);c.stroke();c.fillStyle='#51e5e5';c.beginPath();c.arc(x,y,2.4,0,Math.PI*2);c.fill()}
+for(const p of particles){const s=sampleSensoryForce(p),m=Math.hypot(s.fx,s.fy);total+=m;maximum=Math.max(maximum,m);const x=p.x,y=p.y,ex=x+s.fx*3000,ey=y+s.fy*3000;if(s.radius){c.strokeStyle='rgba(103,232,249,.4)';c.lineWidth=1;c.beginPath();c.arc(x,y,s.radius,0,Math.PI*2);c.stroke()}c.strokeStyle='#ff9d4d';c.lineWidth=1.4;c.beginPath();c.moveTo(x,y);c.lineTo(ex,ey);c.stroke();c.fillStyle='#51e5e5';c.beginPath();c.arc(x,y,2.4,0,Math.PI*2);c.fill()}
 platformSensoryStats.textContent='128 atom positions · mean force '+(total/Math.max(1,particles.length)).toFixed(6)+' · max force '+maximum.toFixed(6)+' · orange arrows magnified 3000× · strength '+platformFeedbackStrength.value+'%';
 }
 function platformRender(){
