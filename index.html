@@ -18,6 +18,10 @@
 <h2>✦ Particle Platformer</h2>
 <p class="muted">A one-way instrument: ejected particles become button presses. The platformer never sends information, rewards or forces back to the 128-atom blob.</p>
 <canvas id="platform-screen" width="640" height="360" style="aspect-ratio:16/9"></canvas>
+<div class="buttons"><label><input type="checkbox" id="platform-feedback"> Feed full platformer view into blob sensory input</label><label>Feedback strength <input type="range" id="platform-feedback-strength" min="0" max="300" value="100"></label></div>
+<p class="muted">Live sensory source — the entire level, not a cropped camera. When enabled, this frame is sampled at 64 × 48 and applies image-gradient forces to the blob each physics tick. Switch off to restore the original open-loop behavior.</p>
+<canvas id="platform-source" width="640" height="360" style="aspect-ratio:16/9"></canvas>
+<p id="platform-feedback-status" class="muted">Feedback off · original independent blob.</p>
 <div class="buttons"><button id="platform-replay">Replay seed + level</button><button id="platform-reset">Reset level only</button><label>Mapping <select id="platform-mapping"><option value="direction">Trajectory first</option><option value="type">Particle type first</option><option value="hybrid">Type × trajectory</option></select></label><label>Command duration <input id="platform-duration" type="range" min="5" max="45" value="18"></label></div>
 <p id="platform-stats" class="muted">Waiting for the first ejection.</p>
 <p class="muted">An event is emitted when an atom that was in the largest bonded cluster leaves it. Reabsorption rearms that atom, so brief departures count. Initially unbonded atoms do not count as ejections. Direction is measured relative to the blob's center and the outgoing velocity. Commands last a fixed number of physics ticks; changing the mapping does not change the blob.</p>
@@ -128,8 +132,9 @@ padHeld=pressed;
 }
 const senseCanvas=document.getElementById('sense-screen'),senseCtx=senseCanvas.getContext('2d'),senseStatus=document.getElementById('sense-status'),senseVectors=document.getElementById('sense-vectors'),senseImage=document.getElementById('sense-image');
 function sampleSensoryForce(p){
-if(!imageField)return {light:0,fx:0,fy:0};
-const field=imageField,wf=field.w,hf=field.h,gx=Math.max(1,Math.min(wf-2,Math.floor(p.x/W*wf))),gy=Math.max(1,Math.min(hf-2,Math.floor(p.y/H*hf))),k=gy*wf+gx;
+const field=platformFeedback&&platformFeedback.checked?platformSensoryField:imageField;
+if(!field)return {light:0,fx:0,fy:0};
+wf=field.w,hf=field.h,gx=Math.max(1,Math.min(wf-2,Math.floor(p.x/W*wf))),gy=Math.max(1,Math.min(hf-2,Math.floor(p.y/H*hf))),k=gy*wf+gx;
 return {light:field.light[k],fx:(field.light[k+1]-field.light[k-1])*.011,fy:(field.light[k+wf]-field.light[k-wf])*.011};
 }
 function drawSensoryObservatory(){
@@ -160,7 +165,7 @@ else if(d>10&&d<26&&Math.hypot(a.vx-b.vx,a.vy-b.vy)<1.8&&(!fatigue.checked||step
 fx[i]+=nx*force;fy[i]+=ny*force;fx[j]-=nx*force;fy[j]-=ny*force;
 }
 let centerX=0,centerY=0,centerMass=0;if(divideForce.checked){for(const p of particles){centerX+=p.x*p.m;centerY+=p.y*p.m;centerMass+=p.m}centerX/=centerMass;centerY/=centerMass}
-for(let i=0;i<N;i++){let p=particles[i];if(growth.checked){const pressure=Math.max(0,(crowding[i]-p.threshold)/12);p.adaptPressure=Math.min(1,pressure);p.mutation=Math.max(0,Math.min(1,p.mutation+(pressure*p.rate*.004)-.0015));p.radius=2.7+p.mutation*5;/* Growth remains local; optional center-relative outward force is applied separately. */}else{p.mutation=0;p.radius=2.7}if(imageField&&imageMode.value==='field'){const sensed=sampleSensoryForce(p);fx[i]+=sensed.fx*p.m;fy[i]+=sensed.fy*p.m}if(divideForce.checked){const dx=p.x-centerX,dy=p.y-centerY,d=Math.hypot(dx,dy);if(d>.001){const response=adapt.checked?(1+.9*p.mutation*(p.adaptPressure||0)) : 1;const strength=.012*(.3+.7*p.mutation)*response;fx[i]+=dx/d*strength*p.m;fy[i]+=dy/d*strength*p.m}}if(memoryMode.value!=='off'&&Number(memoryStrength.value)>0){const history=atomMemories[i];let mx=0,my=0,total=0;for(const mark of history){const age=step-mark.t;if(age>1800)continue;const weight=Math.exp(-age/420);mx+=mark.x*weight;my+=mark.y*weight;total+=weight}if(total>0){const dx=mx/total-p.x,dy=my/total-p.y,d=Math.hypot(dx,dy);if(d>.01){const sign=memoryMode.value==='repel'?-1:1,accel=sign*.018*(Number(memoryStrength.value)/100)*Math.min(d,60)/60;fx[i]+=dx/d*accel*p.m;fy[i]+=dy/d*accel*p.m;memoryForceMean+=Math.abs(accel)/N}}}p.vx=(p.vx+fx[i]/p.m)*.999;p.vy=(p.vy+fy[i]/p.m)*.999;let v=Math.hypot(p.vx,p.vy);if(v>4){p.vx*=4/v;p.vy*=4/v}p.x+=p.vx;p.y+=p.vy;
+for(let i=0;i<N;i++){let p=particles[i];if(growth.checked){const pressure=Math.max(0,(crowding[i]-p.threshold)/12);p.adaptPressure=Math.min(1,pressure);p.mutation=Math.max(0,Math.min(1,p.mutation+(pressure*p.rate*.004)-.0015));p.radius=2.7+p.mutation*5;/* Growth remains local; optional center-relative outward force is applied separately. */}else{p.mutation=0;p.radius=2.7}if((platformFeedback.checked&&platformSensoryField)||(imageField&&imageMode.value==='field')){const sensed=sampleSensoryForce(p);fx[i]+=sensed.fx*p.m;fy[i]+=sensed.fy*p.m}if(divideForce.checked){const dx=p.x-centerX,dy=p.y-centerY,d=Math.hypot(dx,dy);if(d>.001){const response=adapt.checked?(1+.9*p.mutation*(p.adaptPressure||0)) : 1;const strength=.012*(.3+.7*p.mutation)*response;fx[i]+=dx/d*strength*p.m;fy[i]+=dy/d*strength*p.m}}if(memoryMode.value!=='off'&&Number(memoryStrength.value)>0){const history=atomMemories[i];let mx=0,my=0,total=0;for(const mark of history){const age=step-mark.t;if(age>1800)continue;const weight=Math.exp(-age/420);mx+=mark.x*weight;my+=mark.y*weight;total+=weight}if(total>0){const dx=mx/total-p.x,dy=my/total-p.y,d=Math.hypot(dx,dy);if(d>.01){const sign=memoryMode.value==='repel'?-1:1,accel=sign*.018*(Number(memoryStrength.value)/100)*Math.min(d,60)/60;fx[i]+=dx/d*accel*p.m;fy[i]+=dy/d*accel*p.m;memoryForceMean+=Math.abs(accel)/N}}}p.vx=(p.vx+fx[i]/p.m)*.999;p.vy=(p.vy+fy[i]/p.m)*.999;let v=Math.hypot(p.vx,p.vy);if(v>4){p.vx*=4/v;p.vy*=4/v}p.x+=p.vx;p.y+=p.vy;
 // Reflective world edges, deterministic and always active.
 if(p.x<5){p.x=5;p.vx=Math.abs(p.vx)*.8}if(p.x>W-5){p.x=W-5;p.vx=-Math.abs(p.vx)*.8}
 if(p.y<5){p.y=5;p.vy=Math.abs(p.vy)*.8}if(p.y>H-5){p.y=H-5;p.vy=-Math.abs(p.vy)*.8}
@@ -170,7 +175,7 @@ for(let k=0;k<N;k++){if(k===i||k===j)continue;const p=particles[k],dx=p.x-cx,dy=
 if(interior.checked&&closure.checked)applyContainment();
 if(adapt.checked){adaptedCount=particles.filter(p=>p.mutation>.35&&(p.adaptPressure||0)>.15).length}else adaptedCount=0;
 if(tails.checked&&step%4===0)recordParticleHistory();
-connectivityUpdate(crowding);step++;platformObserveEjections();platformAdvance();flightAdvance();if(step%MEMORY_INTERVAL===0)sampleAtomMemories();if(step%120===0)memoryStatus.textContent='Memory '+memoryMode.value+' · strength '+memoryStrength.value+'% · '+atomMemories.reduce((s,a)=>s+a.length,0)+' stored samples · mean force '+memoryForceMean.toFixed(5)+' / step';drawSketchStep();memoryForceMean=0;if(motion.checked&&step%30===0)sampleMotion();if(angular.checked&&step%30===0)sampleAngular()}
+connectivityUpdate(crowding);step++;platformObserveEjections();platformAdvance();platformUpdateSensory();flightAdvance();if(step%MEMORY_INTERVAL===0)sampleAtomMemories();if(step%120===0)memoryStatus.textContent='Memory '+memoryMode.value+' · strength '+memoryStrength.value+'% · '+atomMemories.reduce((s,a)=>s+a.length,0)+' stored samples · mean force '+memoryForceMean.toFixed(5)+' / step';drawSketchStep();memoryForceMean=0;if(motion.checked&&step%30===0)sampleMotion();if(angular.checked&&step%30===0)sampleAngular()}
 function applyContainment(){
 const currentlyInside=new Set();insideCount=0;
 for(const [id,bond] of bonds){if(!bond.closed)continue;
@@ -464,7 +469,7 @@ const platformCanvas=document.getElementById('platform-screen'),pg=platformCanva
 let platformX=36,platformY=280,platformVX=0,platformVY=0,platformGround=true,platformHeld={left:0,right:0,jump:0},platformEventLog=[],platformCount=0,platformDeaths=0,platformWins=0,platformPrevMain=new Set(),platformArmed=new Set(),platformLastMainCenter={x:320,y:240};
 const platformSegments=[[0,132,312],[168,265,312],[302,407,277],[444,565,312],[580,640,312]];
 function platformResetLevel(){platformX=36;platformY=280;platformVX=0;platformVY=0;platformGround=true;platformHeld={left:0,right:0,jump:0}}
-function platformResetAll(){platformResetLevel();platformEventLog=[];platformCount=0;platformDeaths=0;platformWins=0;platformPrevMain=new Set();platformArmed=new Set();platformLastMainCenter={x:320,y:240}}
+function platformResetAll(){platformSensoryField=null;platformResetLevel();platformEventLog=[];platformCount=0;platformDeaths=0;platformWins=0;platformPrevMain=new Set();platformArmed=new Set();platformLastMainCenter={x:320,y:240}}
 function platformComponents(){
 const parent=Array.from({length:N},(_,i)=>i);
 function root(i){while(parent[i]!==i){parent[i]=parent[parent[i]];i=parent[i]}return i}
@@ -506,8 +511,34 @@ if(platformY>395){platformDeaths++;platformResetLevel()}
 platformX=Math.max(10,Math.min(630,platformX));
 if(platformX>620&&platformY<320){platformWins++;platformResetLevel()}
 }
+
+const platformFeedback=document.getElementById('platform-feedback'),platformFeedbackStrength=document.getElementById('platform-feedback-strength'),platformFeedbackStatus=document.getElementById('platform-feedback-status'),platformSource=document.getElementById('platform-source'),platformSourceCtx=platformSource.getContext('2d');
+const platformSample=document.createElement('canvas');platformSample.width=64;platformSample.height=48;
+const platformSampleCtx=platformSample.getContext('2d',{willReadFrequently:true});
+let platformSensoryField=null;
+function platformDrawSource(){
+const c=platformSourceCtx;c.fillStyle='#0b1422';c.fillRect(0,0,640,360);
+c.strokeStyle='#1a3043';c.lineWidth=1;
+for(let x=0;x<640;x+=32){c.beginPath();c.moveTo(x,0);c.lineTo(x,360);c.stroke()}
+for(const [a,b,y] of platformSegments){c.fillStyle='#568a83';c.fillRect(a,y,b-a,360-y);c.fillStyle='#a5dfc5';c.fillRect(a,y,b-a,4)}
+c.fillStyle='#f6c76c';c.fillRect(620,248,4,64);c.beginPath();c.moveTo(624,248);c.lineTo(643,258);c.lineTo(624,268);c.fill();
+c.fillStyle='#6ee7dc';c.beginPath();c.arc(platformX,platformY,11,0,Math.PI*2);c.fill();c.fillStyle='#0b1422';c.fillRect(platformX-5,platformY-3,3,3);c.fillRect(platformX+3,platformY-3,3,3);
+}
+function platformUpdateSensory(){
+if(!platformFeedback.checked){platformSensoryField=null;return}
+platformDrawSource();
+platformSampleCtx.drawImage(platformSource,0,0,64,48);
+const rgba=platformSampleCtx.getImageData(0,0,64,48).data,light=new Float32Array(64*48);
+const gain=Number(platformFeedbackStrength.value)/100;
+for(let i=0;i<light.length;i++){const j=i*4;light[i]=gain*(.2126*rgba[j]+.7152*rgba[j+1]+.0722*rgba[j+2])/255}
+platformSensoryField={w:64,h:48,light};
+}
+platformFeedback.addEventListener('change',()=>{if(platformFeedback.checked)platformUpdateSensory();else platformSensoryField=null;platformFeedbackStatus.textContent=platformFeedback.checked?'Feedback ON · full level is driving blob sensory forces.':'Feedback OFF · original independent blob.'});
+platformFeedbackStrength.addEventListener('input',()=>{if(platformFeedback.checked)platformUpdateSensory()});
 function platformRender(){
 if(document.getElementById('platformer').classList.contains('hidden'))return;
+platformDrawSource();pg.drawImage(platformSource,0,0);
+/* Original overlay follows; source remains HUD-free for sensing. */
 pg.fillStyle='#0b1422';pg.fillRect(0,0,640,360);
 pg.strokeStyle='#1a3043';pg.lineWidth=1;for(let x=0;x<640;x+=32){pg.beginPath();pg.moveTo(x,0);pg.lineTo(x,360);pg.stroke()}
 for(const [a,b,y] of platformSegments){pg.fillStyle='#568a83';pg.fillRect(a,y,b-a,360-y);pg.fillStyle='#a5dfc5';pg.fillRect(a,y,b-a,4)}
@@ -515,6 +546,7 @@ pg.fillStyle='#f6c76c';pg.fillRect(620,248,4,64);pg.beginPath();pg.moveTo(624,24
 pg.fillStyle='#6ee7dc';pg.beginPath();pg.arc(platformX,platformY,11,0,Math.PI*2);pg.fill();pg.fillStyle='#0b1422';pg.fillRect(platformX-5,platformY-3,3,3);pg.fillRect(platformX+3,platformY-3,3,3);
 pg.fillStyle='#e2e8f0';pg.font='13px monospace';pg.fillText('CAVE-001 · TICK '+step+' · ONE-WAY EJECTION CONTROLS',12,22);
 pg.fillText('LEFT '+platformHeld.left+'   RIGHT '+platformHeld.right+'   JUMP '+platformHeld.jump,12,42);
+platformFeedbackStatus.textContent=platformFeedback.checked?'Feedback ON · full-level view → 64×48 gradient field → blob physics. Strength '+platformFeedbackStrength.value+'%.':'Feedback OFF · open-loop baseline.';
 platformStats.textContent='Ejections '+platformCount+' · falls '+platformDeaths+' · goals '+platformWins+' · tick '+step+' · '+(playing?'running':'paused')+'. Replay seed resets both worlds.';
 platformEvents.textContent=platformEventLog.length?platformEventLog.map(e=>'#'+e.atom+' type '+e.type+' → '+e.command.toUpperCase()+' @ tick '+e.tick).join('  |  '):'No ejections detected yet. The main bonded cluster must form before departures can count.';
 }
