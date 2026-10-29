@@ -4,7 +4,16 @@
 *{box-sizing:border-box}body{margin:0;background:#090f19;color:#e2e8f0;font:15px system-ui}.wrap{max-width:1000px;margin:auto;padding:22px}header{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap}h1{letter-spacing:.12em}small,.muted{color:#94a3b8}nav,.buttons{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}button{background:#1e293b;color:white;border:1px solid #475569;border-radius:8px;padding:10px 14px;cursor:pointer}button:hover,button.selected{border-color:#67e8f9;color:#67e8f9}.panel{border:1px solid #334155;border-radius:12px;padding:16px;background:#111c2b}.layout{display:grid;grid-template-columns:minmax(0,1fr) 230px;gap:16px}.studio-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.studio-grid h3{font-size:12px;letter-spacing:.1em}.studio-grid p{font-size:12px}@media(max-width:720px){.studio-grid{grid-template-columns:1fr}}canvas{display:block;width:100%;aspect-ratio:4/3;image-rendering:pixelated;background:#080d17;border:1px solid #334155;border-radius:8px}.hidden{display:none}#status{color:#a5f3fc;min-height:3em;line-height:1.5}.dpad{display:flex;gap:6px;margin-top:10px}kbd{background:#334155;padding:2px 5px;border-radius:3px}@media(max-width:680px){.layout{grid-template-columns:1fr}.wrap{padding:12px}}
 </style>
 <div class="wrap"><header><div><h1>◯ THE CAVE</h1><small>GENERATION 0 · A GAME THAT GROWS</small></div><small>Independent prototype · v0.1</small></header>
-<nav><button data-tab="play" class="selected">Play</button><button data-tab="rules">Rule Map</button><button data-tab="stems">Stems</button><button data-tab="bigbang">Big Bang Lab</button><button data-tab="studio">Perception Studio</button></nav>
+<nav><button data-tab="play" class="selected">Play</button><button data-tab="rules">Rule Map</button><button data-tab="stems">Stems</button><button data-tab="bigbang">Big Bang Lab</button><button data-tab="studio">Perception Studio</button><button data-tab="platformer">Particle Platformer</button></nav>
+<section id="platformer" class="panel hidden">
+<h2>✦ Particle Platformer</h2>
+<p class="muted">A one-way instrument: ejected particles become button presses. The platformer never sends information, rewards or forces back to the 128-atom blob.</p>
+<canvas id="platform-screen" width="640" height="360" style="aspect-ratio:16/9"></canvas>
+<div class="buttons"><button id="platform-replay">Replay seed + level</button><button id="platform-reset">Reset level only</button><label>Mapping <select id="platform-mapping"><option value="direction">Trajectory first</option><option value="type">Particle type first</option><option value="hybrid">Type × trajectory</option></select></label><label>Command duration <input id="platform-duration" type="range" min="5" max="45" value="18"></label></div>
+<p id="platform-stats" class="muted">Waiting for the first ejection.</p>
+<p class="muted">An event is emitted when an atom that was in the largest bonded cluster leaves it. Reabsorption rearms that atom, so brief departures count. Initially unbonded atoms do not count as ejections. Direction is measured relative to the blob's center and the outgoing velocity. Commands last a fixed number of physics ticks; changing the mapping does not change the blob.</p>
+<h3>Recent ejection commands</h3><p id="platform-events" class="muted">No ejections yet.</p>
+</section>
 <section id="studio" class="panel hidden">
 <h2>◉ Perception Studio <small>· prototype 1</small></h2>
 <p class="muted">One living 128-atom simulation. Present visual stimuli, watch its physical response, and inspect what its state can express. The output is a diagnostic encoding, not a trained image reconstruction.</p>
@@ -62,7 +71,7 @@ document.addEventListener('keydown',e=>{const k=e.key.toLowerCase();if(['arrowup
 document.getElementById('interact').onclick=interact;document.getElementById('circle').onclick=circle;document.getElementById('spawn').onclick=spawn;document.getElementById('reset').onclick=init;
 document.getElementById('save').onclick=()=>{localStorage.setItem(saveKey,JSON.stringify({atoms,edges,options:Object.fromEntries(Object.entries(opts).map(([k,v])=>[k,v.checked]))}));status.textContent='Five-atom world saved in this browser.';document.getElementById('saved').textContent='Five-atom save available.'};
 document.getElementById('load').onclick=()=>{try{const s=JSON.parse(localStorage.getItem(saveKey));if(!s||s.atoms?.length!==5||!Array.isArray(s.edges))throw Error();atoms=s.atoms;edges=s.edges;for(const [k,v] of Object.entries(s.options||{}))if(opts[k])opts[k].checked=!!v;update();status.textContent='Five-atom world loaded.'}catch{status.textContent='No valid five-atom save found.'}};
-document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('selected',x===b));['play','rules','stems','bigbang','studio'].forEach(id=>document.getElementById(id).classList.toggle('hidden',id!==b.dataset.tab))});
+document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('selected',x===b));['play','rules','stems','bigbang','studio','platformer'].forEach(id=>document.getElementById(id).classList.toggle('hidden',id!==b.dataset.tab))});
 document.querySelectorAll('[data-dir]').forEach(b=>{b.addEventListener('pointerdown',e=>{e.preventDefault();touch=b.dataset.dir;b.setPointerCapture(e.pointerId)});b.addEventListener('pointerup',()=>touch='');b.addEventListener('pointercancel',()=>touch='')});
 init();if(localStorage.getItem(saveKey))document.getElementById('saved').textContent='Five-atom save available.';requestAnimationFrame(tick);
 })();
@@ -74,7 +83,7 @@ const sketchCanvas=document.getElementById('sketch-screen'),sketchCtx=sketchCanv
 let particles=[],bonds=new Map(),scar=new Map(),step=0,playing=true,carry=0,previous=0,impulses=[],rng,broken=0,peakStrain=0,shed=0,closures=0,reopenings=0,trail=[],departures=[],tests=[],previousOutside=new Set(),motionSample=null,insideCount=0,containmentCrossings=0,insidePrevious=new Set(),adaptedCount=0,padHeld=false,padIndex=null,angularSample=null,angularPrevSign=0,angularReversals=0,angularHistory=[],angularPrevPositions=null,angularPrevRings=new Map(),angularObserved=null;
 function hash(s){let h=2166136261;for(let i=0;i<s.length;i++){h=Math.imul(h^s.charCodeAt(i),16777619)}return h>>>0}
 function random(){let t=rng+=0x6D2B79F5;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return ((t^t>>>14)>>>0)/4294967296}
-function reset(){clearSketch();atomMemories=Array.from({length:128},()=>[]);memoryForceMean=0;rng=hash(SEED);particles=[];bonds.clear();scar.clear();step=0;carry=0;impulses=[];broken=0;peakStrain=0;shed=0;closures=0;reopenings=0;trail=[];departures=[];tests=[];previousOutside=new Set();motionSample=null;insideCount=0;containmentCrossings=0;insidePrevious.clear();adaptedCount=0;angularSample=null;angularPrevSign=0;angularReversals=0;angularHistory=[];angularPrevPositions=null;angularPrevRings=new Map();angularObserved=null;for(let i=0;i<N;i++){let a=random()*Math.PI*2,r=Math.sqrt(random())*9,s=.45+random()*1.4;let x=W/2+Math.cos(a)*r,y=H/2+Math.sin(a)*r,kind=i%3;if(imageField){const cell=imageField.cells[Math.floor(random()*imageField.cells.length)];x=Math.min(W-5,Math.max(5,(cell.x+random())*W/imageField.w));y=Math.min(H-5,Math.max(5,(cell.y+random())*H/imageField.h));kind=cell.kind}particles.push({x,y,vx:Math.cos(a)*s*2+(random()-.5)*.3,vy:Math.sin(a)*s*2+(random()-.5)*.3,m:.8+random()*.8,kind,radius:2.7,mutation:0,threshold:5+random()*4,rate:.6+random()*.8,capacityBase:3+Math.floor(random()*4),capacity:4,connectBias:.6+random()*.8,history:[]})}notice.textContent='Replayed seed '+SEED+' from tick zero.';render()}
+function reset(){platformResetAll();clearSketch();atomMemories=Array.from({length:128},()=>[]);memoryForceMean=0;rng=hash(SEED);particles=[];bonds.clear();scar.clear();step=0;carry=0;impulses=[];broken=0;peakStrain=0;shed=0;closures=0;reopenings=0;trail=[];departures=[];tests=[];previousOutside=new Set();motionSample=null;insideCount=0;containmentCrossings=0;insidePrevious.clear();adaptedCount=0;angularSample=null;angularPrevSign=0;angularReversals=0;angularHistory=[];angularPrevPositions=null;angularPrevRings=new Map();angularObserved=null;for(let i=0;i<N;i++){let a=random()*Math.PI*2,r=Math.sqrt(random())*9,s=.45+random()*1.4;let x=W/2+Math.cos(a)*r,y=H/2+Math.sin(a)*r,kind=i%3;if(imageField){const cell=imageField.cells[Math.floor(random()*imageField.cells.length)];x=Math.min(W-5,Math.max(5,(cell.x+random())*W/imageField.w));y=Math.min(H-5,Math.max(5,(cell.y+random())*H/imageField.h));kind=cell.kind}particles.push({x,y,vx:Math.cos(a)*s*2+(random()-.5)*.3,vy:Math.sin(a)*s*2+(random()-.5)*.3,m:.8+random()*.8,kind,radius:2.7,mutation:0,threshold:5+random()*4,rate:.6+random()*.8,capacityBase:3+Math.floor(random()*4),capacity:4,connectBias:.6+random()*.8,history:[]})}notice.textContent='Replayed seed '+SEED+' from tick zero.';render()}
 function key(i,j){return i*N+j}
 function impulse(x,y,strength=3){impulses.push({at:step,x,y,strength});applyImpulse(x,y,strength)}
 function applyImpulse(x,y,strength,dirX=0,dirY=0){for(let i=0;i<N;i++){const p=particles[i],dx=p.x-x,dy=p.y-y,d=Math.hypot(dx,dy)+.01;if(d<120){const k=strength*(1-d/120);p.vx+=(dx/d+dirX*1.6)*k;p.vy+=(dy/d+dirY*1.6)*k}}}
@@ -152,7 +161,7 @@ for(let k=0;k<N;k++){if(k===i||k===j)continue;const p=particles[k],dx=p.x-cx,dy=
 if(interior.checked&&closure.checked)applyContainment();
 if(adapt.checked){adaptedCount=particles.filter(p=>p.mutation>.35&&(p.adaptPressure||0)>.15).length}else adaptedCount=0;
 if(tails.checked&&step%4===0)recordParticleHistory();
-connectivityUpdate(crowding);step++;if(step%MEMORY_INTERVAL===0)sampleAtomMemories();if(step%120===0)memoryStatus.textContent='Memory '+memoryMode.value+' · strength '+memoryStrength.value+'% · '+atomMemories.reduce((s,a)=>s+a.length,0)+' stored samples · mean force '+memoryForceMean.toFixed(5)+' / step';drawSketchStep();memoryForceMean=0;if(motion.checked&&step%30===0)sampleMotion();if(angular.checked&&step%30===0)sampleAngular()}
+connectivityUpdate(crowding);step++;platformObserveEjections();platformAdvance();if(step%MEMORY_INTERVAL===0)sampleAtomMemories();if(step%120===0)memoryStatus.textContent='Memory '+memoryMode.value+' · strength '+memoryStrength.value+'% · '+atomMemories.reduce((s,a)=>s+a.length,0)+' stored samples · mean force '+memoryForceMean.toFixed(5)+' / step';drawSketchStep();memoryForceMean=0;if(motion.checked&&step%30===0)sampleMotion();if(angular.checked&&step%30===0)sampleAngular()}
 function applyContainment(){
 const currentlyInside=new Set();insideCount=0;
 for(const [id,bond] of bonds){if(!bond.closed)continue;
@@ -370,6 +379,67 @@ const studioSource=document.getElementById('studio-source'),studioBrain=document
 const studioSourceCtx=studioSource.getContext('2d'),studioBrainCtx=studioBrain.getContext('2d'),studioMemoryCtx=studioMemoryView.getContext('2d');
 const studioInput=document.getElementById('studio-image'),studioPlay=document.getElementById('studio-play'),studioMemoryMode=document.getElementById('studio-memory'),studioMemoryStrength=document.getElementById('studio-memory-strength');
 function studioSave(canvas,prefix){const link=document.createElement('a');link.download=prefix+'-tick-'+step+'.png';link.href=canvas.toDataURL('image/png');link.click()}
+
+const platformCanvas=document.getElementById('platform-screen'),pg=platformCanvas.getContext('2d'),platformStats=document.getElementById('platform-stats'),platformEvents=document.getElementById('platform-events'),platformMapping=document.getElementById('platform-mapping'),platformDuration=document.getElementById('platform-duration');
+let platformX=36,platformY=280,platformVX=0,platformVY=0,platformGround=true,platformHeld={left:0,right:0,jump:0},platformEventLog=[],platformCount=0,platformDeaths=0,platformWins=0,platformPrevMain=new Set(),platformArmed=new Set(),platformLastMainCenter={x:320,y:240};
+const platformSegments=[[0,132,312],[168,265,312],[302,407,277],[444,565,312],[580,640,312]];
+function platformResetLevel(){platformX=36;platformY=280;platformVX=0;platformVY=0;platformGround=true;platformHeld={left:0,right:0,jump:0}}
+function platformResetAll(){platformResetLevel();platformEventLog=[];platformCount=0;platformDeaths=0;platformWins=0;platformPrevMain=new Set();platformArmed=new Set();platformLastMainCenter={x:320,y:240}}
+function platformComponents(){
+const parent=Array.from({length:N},(_,i)=>i);
+function root(i){while(parent[i]!==i){parent[i]=parent[parent[i]];i=parent[i]}return i}
+for(const id of bonds.keys()){const a=root(Math.floor(id/N)),b=root(id%N);if(a!==b)parent[b]=a}
+const groups=new Map();for(let i=0;i<N;i++){const k=root(i);if(!groups.has(k))groups.set(k,[]);groups.get(k).push(i)}
+return [...groups.values()].sort((a,b)=>b.length-a.length||a[0]-b[0])[0]||[];
+}
+function platformCommand(p,dx,dy){
+const mode=platformMapping.value,kind=p.kind%3,axis=Math.abs(dx)>=Math.abs(dy)?(dx>=0?'right':'left'):(dy<0?'jump':dx>=0?'right':'left');
+if(mode==='direction')return axis;
+if(mode==='type')return ['left','right','jump'][kind];
+return kind===2?'jump':kind===0?(dx<0?'left':'right'):(dy<0?'jump':dx<0?'left':'right');
+}
+function platformObserveEjections(){
+const main=platformComponents(),current=new Set(main);
+if(main.length>=3){
+let cx=0,cy=0;for(const i of main){cx+=particles[i].x;cy+=particles[i].y}cx/=main.length;cy/=main.length;
+for(const i of main)platformArmed.add(i);
+for(const i of platformPrevMain){
+if(current.has(i)||!platformArmed.has(i))continue;
+const p=particles[i],dx=p.x-cx,dy=p.y-cy,rad=Math.hypot(dx,dy)||1,outward=(p.vx*dx+p.vy*dy)/rad;
+const command=platformCommand(p,dx,dy);
+platformHeld[command]=Math.max(platformHeld[command],Number(platformDuration.value));
+platformCount++;platformEventLog.unshift({tick:step,atom:i,type:p.kind,command,outward});if(platformEventLog.length>8)platformEventLog.length=8;
+platformArmed.delete(i);
+}
+platformLastMainCenter={x:cx,y:cy};
+}
+platformPrevMain=current;
+}
+function platformAdvance(){
+for(const k of ['left','right','jump'])if(platformHeld[k]>0)platformHeld[k]--;
+const direction=(platformHeld.right>0?1:0)-(platformHeld.left>0?1:0);
+platformVX=direction*2.3;
+if(platformHeld.jump>0&&platformGround){platformVY=-7.6;platformGround=false;platformHeld.jump=0}
+const prevBottom=platformY+12;platformX+=platformVX;platformVY+=.35;platformY+=platformVY;platformGround=false;
+for(const [a,b,y] of platformSegments){if(platformVX||true){if(platformX+9>a&&platformX-9<b&&platformVY>=0&&prevBottom<=y+2&&platformY+12>=y){platformY=y-12;platformVY=0;platformGround=true}}}
+if(platformY>395){platformDeaths++;platformResetLevel()}
+platformX=Math.max(10,Math.min(630,platformX));
+if(platformX>620&&platformY<320){platformWins++;platformResetLevel()}
+}
+function platformRender(){
+if(document.getElementById('platformer').classList.contains('hidden'))return;
+pg.fillStyle='#0b1422';pg.fillRect(0,0,640,360);
+pg.strokeStyle='#1a3043';pg.lineWidth=1;for(let x=0;x<640;x+=32){pg.beginPath();pg.moveTo(x,0);pg.lineTo(x,360);pg.stroke()}
+for(const [a,b,y] of platformSegments){pg.fillStyle='#568a83';pg.fillRect(a,y,b-a,360-y);pg.fillStyle='#a5dfc5';pg.fillRect(a,y,b-a,4)}
+pg.fillStyle='#f6c76c';pg.fillRect(620,248,4,64);pg.beginPath();pg.moveTo(624,248);pg.lineTo(643,258);pg.lineTo(624,268);pg.fill();
+pg.fillStyle='#6ee7dc';pg.beginPath();pg.arc(platformX,platformY,11,0,Math.PI*2);pg.fill();pg.fillStyle='#0b1422';pg.fillRect(platformX-5,platformY-3,3,3);pg.fillRect(platformX+3,platformY-3,3,3);
+pg.fillStyle='#e2e8f0';pg.font='13px monospace';pg.fillText('CAVE-001 · TICK '+step+' · ONE-WAY EJECTION CONTROLS',12,22);
+pg.fillText('LEFT '+platformHeld.left+'   RIGHT '+platformHeld.right+'   JUMP '+platformHeld.jump,12,42);
+platformStats.textContent='Ejections '+platformCount+' · falls '+platformDeaths+' · goals '+platformWins+' · tick '+step+' · '+(playing?'running':'paused')+'. Replay seed resets both worlds.';
+platformEvents.textContent=platformEventLog.length?platformEventLog.map(e=>'#'+e.atom+' type '+e.type+' → '+e.command.toUpperCase()+' @ tick '+e.tick).join('  |  '):'No ejections detected yet. The main bonded cluster must form before departures can count.';
+}
+document.getElementById('platform-replay').addEventListener('click',()=>{document.getElementById('bang-reset').click();platformRender()});
+document.getElementById('platform-reset').addEventListener('click',()=>{platformResetLevel();platformRender()});
 function studioRender(){
 if(document.getElementById('studio').classList.contains('hidden'))return;
 studioSourceCtx.fillStyle='#0b1422';studioSourceCtx.fillRect(0,0,320,240);
@@ -399,7 +469,7 @@ document.getElementById('studio-snapshot').addEventListener('click',()=>studioSa
 document.getElementById('studio-memory-save').addEventListener('click',()=>studioSave(studioMemoryView,'the-cave-position-memory'));
 document.getElementById('studio-clear-drawing').addEventListener('click',()=>clearSketch());
 document.getElementById('studio-lab').addEventListener('click',()=>document.querySelector('[data-tab="bigbang"]').click());
-function loop(now){pollController();if(!previous)previous=now;let elapsed=Math.min((now-previous)/1000,.1);previous=now;if(playing){carry+=elapsed*60*Number(speed.value);let count=0;while(carry>=1&&count<128){physics();advanceAB();carry--;count++}if(count===128)carry=0}render();if(++perceptionFrame%2===0){studioRender();perceive();renderFibers();renderBrainStatic();renderMemoryStatic();drawSensoryObservatory();drawAB()}requestAnimationFrame(loop)}
+function loop(now){pollController();if(!previous)previous=now;let elapsed=Math.min((now-previous)/1000,.1);previous=now;if(playing){carry+=elapsed*60*Number(speed.value);let count=0;while(carry>=1&&count<128){physics();advanceAB();carry--;count++}if(count===128)carry=0}render();if(++perceptionFrame%2===0){studioRender();platformRender();perceive();renderFibers();renderBrainStatic();renderMemoryStatic();drawSensoryObservatory();drawAB()}requestAnimationFrame(loop)}
 memoryMode.addEventListener('change',()=>{memoryStatus.textContent='Memory '+memoryMode.value+' at tick '+step+'; stored history preserved.'});memoryStrength.addEventListener('input',()=>{memoryStatus.textContent='Memory strength '+memoryStrength.value+'% · history preserved.'});function liveChange(label){notice.textContent='Live rule change at tick '+step+': '+label+'. World state preserved.';render()}
 adapt.addEventListener('change',()=>liveChange('local adaptation '+(adapt.checked?'ON':'OFF')));
 divideForce.addEventListener('change',()=>liveChange('center-outward force '+(divideForce.checked?'ON':'OFF')));
@@ -419,6 +489,6 @@ document.getElementById('bang-pulse').onclick=()=>impulse(W/2,H/2,3);
 canvas.addEventListener('pointerdown',e=>{const r=canvas.getBoundingClientRect();impulse((e.clientX-r.left)*W/r.width,(e.clientY-r.top)*H/r.height,3);notice.textContent='Impulse applied at tick '+step+'.'});
 window.addEventListener('gamepadconnected',e=>{padIndex=e.gamepad.index;padStatus.textContent='Controller connected: '+e.gamepad.id+' · A to pulse, left stick to steer.'});
 window.addEventListener('gamepaddisconnected',e=>{if(padIndex===e.gamepad.index){padIndex=null;padHeld=false}});
-reset();perceive();renderFibers();renderBrainStatic();drawSensoryObservatory();drawAB();requestAnimationFrame(loop);
+reset();platformRender();perceive();renderFibers();renderBrainStatic();drawSensoryObservatory();drawAB();requestAnimationFrame(loop);
 })();
 </script></html>
